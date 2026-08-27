@@ -21,6 +21,8 @@ export async function POST(req: NextRequest) {
     db.auditLogs = db.auditLogs.filter((a) => !toDelete.has(a.id));
   }
 
+  await db.save();
+
   return NextResponse.json({
     success: true,
     count,

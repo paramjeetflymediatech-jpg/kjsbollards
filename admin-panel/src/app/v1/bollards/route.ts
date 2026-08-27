@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
     db.bollards[existingIndex].name = name ? String(name).trim() : db.bollards[existingIndex].name;
     db.bollards[existingIndex].siteId = targetSiteId;
     db.bollards[existingIndex].enabled = true;
+    await db.save();
     return NextResponse.json(db.bollards[existingIndex], { status: 200 });
   }
 
@@ -84,5 +85,6 @@ export async function POST(req: NextRequest) {
     createdAt: new Date().toISOString(),
   });
 
+  await db.save();
   return NextResponse.json(newBollard, { status: 201 });
 }

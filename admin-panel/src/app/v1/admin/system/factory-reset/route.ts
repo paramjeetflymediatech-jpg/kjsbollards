@@ -21,6 +21,8 @@ export async function POST(req: NextRequest) {
   db.auditLogs = [];
   db.users = db.users.filter((u) => u.id === actor.id);
 
+  await db.save();
+
   return NextResponse.json({
     success: true,
     message: "System database factory reset completed. Operational data purged.",

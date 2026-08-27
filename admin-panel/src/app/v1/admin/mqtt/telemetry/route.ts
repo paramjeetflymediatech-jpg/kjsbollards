@@ -42,6 +42,8 @@ export async function DELETE(req: NextRequest) {
     createdAt: new Date().toISOString(),
   });
 
+  await db.save();
+
   return NextResponse.json({
     success: true,
     removedCount,

@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { hashPassword } from "./auth";
 
 export interface DBUser {
@@ -75,7 +77,20 @@ export interface DBCommandRequest {
   createdAt: string;
 }
 
-class InMemoryDatabase {
+interface StoredData {
+  users: DBUser[];
+  sites: DBSite[];
+  bollards: DBBollard[];
+  gatelinkCloudDevices: DBGateLinkDevice[];
+  mqttTelemetry: DBMqttTelemetry[];
+  auditLogs: DBAuditLog[];
+  commands: DBCommandRequest[];
+}
+
+const DATA_DIR = path.join(process.cwd(), "data");
+const DB_FILE_PATH = path.join(DATA_DIR, "db.json");
+
+class PersistentDatabase {
   users: DBUser[] = [];
   sites: DBSite[] = [];
   bollards: DBBollard[] = [];
@@ -85,9 +100,49 @@ class InMemoryDatabase {
   commands: DBCommandRequest[] = [];
   private initialized = false;
 
-  async init() {
+  async save(): Promise<void> {
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      const data: StoredData = {
+        users: this.users,
+        sites: this.sites,
+        bollards: this.bollards,
+        gatelinkCloudDevices: this.gatelinkCloudDevices,
+        mqttTelemetry: this.mqttTelemetry,
+        auditLogs: this.auditLogs,
+        commands: this.commands,
+      };
+      await fs.promises.writeFile(DB_FILE_PATH, JSON.stringify(data, null, 2), "utf-8");
+    } catch (err) {
+      console.error("[DB] Failed to save database to disk:", err);
+    }
+  }
+
+  async init(): Promise<void> {
     if (this.initialized) return;
 
+    // Check if database file exists on disk
+    if (fs.existsSync(DB_FILE_PATH)) {
+      try {
+        const raw = await fs.promises.readFile(DB_FILE_PATH, "utf-8");
+        const parsed: StoredData = JSON.parse(raw);
+        this.users = parsed.users || [];
+        this.sites = parsed.sites || [];
+        this.bollards = parsed.bollards || [];
+        this.gatelinkCloudDevices = parsed.gatelinkCloudDevices || [];
+        this.mqttTelemetry = parsed.mqttTelemetry || [];
+        this.auditLogs = parsed.auditLogs || [];
+        this.commands = parsed.commands || [];
+        this.initialized = true;
+        return;
+      } catch (err) {
+        console.error("[DB] Could not parse existing db.json, creating clean seed:", err);
+      }
+    }
+
+    // Otherwise, generate initial seed only once
     const adminHash = await hashPassword("KjsSecure2026!");
     const operatorHash = await hashPassword("KjsSecure2026!");
 
@@ -169,68 +224,59 @@ class InMemoryDatabase {
       },
     ];
 
-    if (!this.gatelinkCloudDevices || !Array.isArray(this.gatelinkCloudDevices)) {
-      this.gatelinkCloudDevices = [
-        {
-          deviceCode: "RC200-A5B1-01",
-          deviceName: "Main Entrance Controller",
-          online: true,
-        },
-        {
-          deviceCode: "RC200-A5B1-02",
-          deviceName: "Secondary Gate Controller",
-          online: true,
-        },
-        {
-          deviceCode: "RC200-B2C3-01",
-          deviceName: "North Perimeter 4G",
-          online: true,
-        },
-        {
-          deviceCode: "RC200-NEW-99",
-          deviceName: "Warehouse Gate Controller",
-          online: false,
-        },
-      ];
-    }
+    this.gatelinkCloudDevices = [
+      {
+        deviceCode: "RC200-A5B1-01",
+        deviceName: "Main Entrance Controller",
+        online: true,
+      },
+      {
+        deviceCode: "RC200-A5B1-02",
+        deviceName: "Secondary Gate Controller",
+        online: true,
+      },
+      {
+        deviceCode: "RC200-B2C3-01",
+        deviceName: "North Perimeter 4G",
+        online: true,
+      },
+    ];
 
-    if (!this.mqttTelemetry || !Array.isArray(this.mqttTelemetry)) {
-      this.mqttTelemetry = [
-        {
-          sn: "RC200-A5B1-01",
-          online: true,
-          lastSeen: new Date().toISOString(),
-          hardwareVersion: "1.11",
-          softwareVersion: "1.01",
-          signalStrength: 72,
-          inputs: [true, false, false],
-          outputs: [true, false, false, false],
-          cycleCount: 1420,
-        },
-        {
-          sn: "RC200-A5B1-02",
-          online: true,
-          lastSeen: new Date().toISOString(),
-          hardwareVersion: "1.11",
-          softwareVersion: "1.01",
-          signalStrength: 65,
-          inputs: [false, true, false],
-          outputs: [false, false, false, false],
-          cycleCount: 1390,
-        },
-        {
-          sn: "RC200-B2C3-01",
-          online: true,
-          lastSeen: new Date().toISOString(),
-          hardwareVersion: "1.20",
-          softwareVersion: "1.04",
-          signalStrength: 84,
-          inputs: [true, false, false],
-          outputs: [false, false, false, false],
-          cycleCount: 840,
-        },
-      ];
-    }
+    this.mqttTelemetry = [
+      {
+        sn: "RC200-A5B1-01",
+        online: true,
+        lastSeen: new Date().toISOString(),
+        hardwareVersion: "1.11",
+        softwareVersion: "1.01",
+        signalStrength: 72,
+        inputs: [true, false, false],
+        outputs: [true, false, false, false],
+        cycleCount: 1420,
+      },
+      {
+        sn: "RC200-A5B1-02",
+        online: true,
+        lastSeen: new Date().toISOString(),
+        hardwareVersion: "1.11",
+        softwareVersion: "1.01",
+        signalStrength: 65,
+        inputs: [false, true, false],
+        outputs: [false, false, false, false],
+        cycleCount: 1390,
+      },
+      {
+        sn: "RC200-B2C3-01",
+        online: true,
+        lastSeen: new Date().toISOString(),
+        hardwareVersion: "1.20",
+        softwareVersion: "1.04",
+        signalStrength: 84,
+        inputs: [true, false, false],
+        outputs: [false, false, false, false],
+        cycleCount: 840,
+      },
+    ];
 
     this.auditLogs = [
       {
@@ -242,23 +288,25 @@ class InMemoryDatabase {
         remoteIp: "127.0.0.1",
         createdAt: new Date(Date.now() - 3600000).toISOString(),
       },
-      {
-        id: `aud-${Date.now()}-2`,
-        userId: operatorUser.id,
-        eventType: "command_raise",
-        detail: { bollard: "RC200-A5B1-01", status: "RAISED" },
-        severity: "info",
-        remoteIp: "127.0.0.1",
-        createdAt: new Date(Date.now() - 1800000).toISOString(),
-      },
     ];
 
     this.initialized = true;
+    await this.save();
+  }
+
+  async reset(): Promise<void> {
+    this.initialized = false;
+    if (fs.existsSync(DB_FILE_PATH)) {
+      try {
+        await fs.promises.unlink(DB_FILE_PATH);
+      } catch (_) {}
+    }
+    await this.init();
   }
 }
 
-// Global persistent singleton in development
-const globalForDb = global as unknown as { dbInstance?: InMemoryDatabase };
-export const db = globalForDb.dbInstance || new InMemoryDatabase();
+// Global singleton for Next.js hot-reloading
+const globalForDb = global as unknown as { dbInstance?: PersistentDatabase };
+export const db = globalForDb.dbInstance || new PersistentDatabase();
 if (process.env.NODE_ENV !== "production") globalForDb.dbInstance = db;
 await db.init();

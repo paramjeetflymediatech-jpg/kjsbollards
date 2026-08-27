@@ -25,5 +25,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     createdAt: new Date().toISOString(),
   });
 
+  await db.save();
   return NextResponse.json({ success: true, message: `Bollard ${removed?.name} decommissioned` });
 }

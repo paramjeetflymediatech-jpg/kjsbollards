@@ -23,6 +23,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cod
     createdAt: new Date().toISOString(),
   });
 
+  await db.save();
+
   return NextResponse.json({
     success: true,
     message: `Device ${cleanCode} released from GateLink Cloud account`,

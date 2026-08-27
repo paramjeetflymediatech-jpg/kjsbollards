@@ -20,6 +20,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (address !== undefined) site.address = String(address).trim();
   if (ownerId !== undefined) site.ownerId = ownerId || null;
 
+  await db.save();
   return NextResponse.json(site);
 }
 
@@ -50,5 +51,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     createdAt: new Date().toISOString(),
   });
 
+  await db.save();
   return NextResponse.json({ success: true, message: `Site ${removed?.name} removed` });
 }

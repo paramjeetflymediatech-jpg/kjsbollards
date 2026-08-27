@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
   };
 
   db.sites.push(newSite);
+  await db.save();
 
   return NextResponse.json(
     {

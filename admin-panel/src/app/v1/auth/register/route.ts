@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
       createdAt: new Date().toISOString(),
     };
     db.sites.push(newSite);
+    await db.save();
 
     const token = await signJwtToken({
       id: newUser.id,

@@ -1,0 +1,169 @@
+{
+  "users": [
+    {
+      "id": "usr-admin-01",
+      "name": "Master Administrator",
+      "email": "admin@kjsbollards.co.uk",
+      "passwordHash": "$2b$10$tBmbpbjmXfh1T8f25guVteDXqLd.m72OEfCivsnVD2R/6HpcLZul.",
+      "role": "admin",
+      "enabled": true,
+      "createdAt": "2026-08-27T09:57:54.554Z"
+    },
+    {
+      "id": "usr-op-02",
+      "name": "Site Security Lead",
+      "email": "operator@kjsbollards.co.uk",
+      "passwordHash": "$2b$10$lypNf3nt6o8uSEa65YHaU..dQAyd.3t/ltl0zysX7ZWluIDv8EA/m",
+      "role": "operator",
+      "enabled": true,
+      "createdAt": "2026-08-27T09:57:54.554Z"
+    }
+  ],
+  "sites": [
+    {
+      "id": "site-hq-01",
+      "name": "Mayfair Corporate Headquarters",
+      "address": "14 Berkeley Square, Mayfair, London W1J 6BQ",
+      "ownerId": "usr-op-02",
+      "enabled": true,
+      "createdAt": "2026-08-27T09:57:54.554Z"
+    },
+    {
+      "id": "site-log-02",
+      "name": "North Perimeter Logistics Gate",
+      "address": "Unit 4, Gateway Industrial Estate, Manchester",
+      "ownerId": "usr-op-02",
+      "enabled": true,
+      "createdAt": "2026-08-27T09:57:54.554Z"
+    }
+  ],
+  "bollards": [
+    {
+      "id": "bol-01",
+      "name": "Main Entrance Bollard #1",
+      "deviceCode": "RC200-A5B1-01",
+      "status": "RAISED",
+      "enabled": true,
+      "siteId": "site-hq-01",
+      "cycleCount": 1420,
+      "openDuration": 6,
+      "createdAt": "2026-08-27T09:57:54.554Z"
+    },
+    {
+      "id": "bol-02",
+      "name": "Main Entrance Bollard #2",
+      "deviceCode": "RC200-A5B1-02",
+      "status": "RAISED",
+      "enabled": true,
+      "siteId": "site-hq-01",
+      "cycleCount": 1390,
+      "openDuration": 6,
+      "createdAt": "2026-08-27T09:57:54.554Z"
+    },
+    {
+      "id": "bol-03",
+      "name": "Service Delivery Gate",
+      "deviceCode": "RC200-B2C3-01",
+      "status": "LOWERED",
+      "enabled": true,
+      "siteId": "site-log-02",
+      "cycleCount": 840,
+      "openDuration": 8,
+      "createdAt": "2026-08-27T09:57:54.554Z"
+    }
+  ],
+  "gatelinkCloudDevices": [
+    {
+      "deviceCode": "RC200-A5B1-01",
+      "deviceName": "Main Entrance Controller",
+      "online": true
+    },
+    {
+      "deviceCode": "RC200-A5B1-02",
+      "deviceName": "Secondary Gate Controller",
+      "online": true
+    },
+    {
+      "deviceCode": "RC200-B2C3-01",
+      "deviceName": "North Perimeter 4G",
+      "online": true
+    }
+  ],
+  "mqttTelemetry": [
+    {
+      "sn": "RC200-A5B1-01",
+      "online": true,
+      "lastSeen": "2026-08-27T09:57:54.554Z",
+      "hardwareVersion": "1.11",
+      "softwareVersion": "1.01",
+      "signalStrength": 72,
+      "inputs": [
+        true,
+        false,
+        false
+      ],
+      "outputs": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "cycleCount": 1420
+    },
+    {
+      "sn": "RC200-A5B1-02",
+      "online": true,
+      "lastSeen": "2026-08-27T09:57:54.554Z",
+      "hardwareVersion": "1.11",
+      "softwareVersion": "1.01",
+      "signalStrength": 65,
+      "inputs": [
+        false,
+        true,
+        false
+      ],
+      "outputs": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "cycleCount": 1390
+    },
+    {
+      "sn": "RC200-B2C3-01",
+      "online": true,
+      "lastSeen": "2026-08-27T09:57:54.554Z",
+      "hardwareVersion": "1.20",
+      "softwareVersion": "1.04",
+      "signalStrength": 84,
+      "inputs": [
+        true,
+        false,
+        false
+      ],
+      "outputs": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "cycleCount": 840
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": "aud-1787824674554-1",
+      "userId": "usr-admin-01",
+      "eventType": "system_startup",
+      "detail": {
+        "mode": "unified_nextjs_enterprise",
+        "version": "2.0.0"
+      },
+      "severity": "info",
+      "remoteIp": "127.0.0.1",
+      "createdAt": "2026-08-27T08:57:54.554Z"
+    }
+  ],
+  "commands": []
+}
