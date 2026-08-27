@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   if (!actor) return unauthorizedResponse();
 
   const body = await req.json().catch(() => ({}));
-  const { name, deviceCode, siteId, openDuration } = body;
+  const { name, deviceCode, siteId, openDuration, movementSeconds } = body;
 
   if (!deviceCode) {
     return NextResponse.json({ error: "Device code (serial) is required" }, { status: 400 });
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     enabled: true,
     siteId: targetSiteId,
     cycleCount: 0,
-    openDuration: Number(openDuration) || 6,
+    openDuration: Number(openDuration || movementSeconds) || 6,
     createdAt: new Date().toISOString(),
   };
 

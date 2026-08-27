@@ -68,6 +68,7 @@ export interface CommissionPayload {
   name: string;
   deviceCode: string;
   movementSeconds?: number;
+  openDuration?: number;
   raiseRelay?: number;
   lowerRelay?: number;
   stopRelay?: number;
@@ -107,6 +108,7 @@ export type ScreenType =
   | "dashboard"
   | "sites"
   | "control"
+  | "events"
   | "history"
   | "alerts"
   | "settings"

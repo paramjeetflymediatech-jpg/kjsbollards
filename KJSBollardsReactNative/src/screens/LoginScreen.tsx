@@ -16,8 +16,6 @@ import { responsiveFont } from "../theme/responsive";
 interface LoginScreenProps {
   onLogin: (email: string, pass: string) => Promise<void>;
   onRegisterOwner: (name: string, email: string, pass: string, siteName: string) => Promise<void>;
-  onDemoOwner: () => void;
-  onDemoSpouse: () => void;
   isLoading: boolean;
   error: string | null;
 }
@@ -25,15 +23,13 @@ interface LoginScreenProps {
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   onLogin,
   onRegisterOwner,
-  onDemoOwner,
-  onDemoSpouse,
   isLoading,
   error,
 }) => {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [name, setName] = useState("");
   const [siteName, setSiteName] = useState("");
-  const [email, setEmail] = useState("owner@kjsbollards.co.uk");
+  const [email, setEmail] = useState("admin@kjsbollards.co.uk");
   const [password, setPassword] = useState("KjsSecure2026!");
   const [secure, setSecure] = useState(true);
 
