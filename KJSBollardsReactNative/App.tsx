@@ -39,6 +39,15 @@ export default function App() {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [accessModalVisible, setAccessModalVisible] = useState(false);
 
+  // Setup token refresh listener to keep AsyncStorage continuously updated
+  useEffect(() => {
+    api.onTokenRefreshed(async (newSession) => {
+      try {
+        await AsyncStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(newSession));
+      } catch (_) {}
+    });
+  }, []);
+
   // Restore authenticated session from persistent storage on app launch
   useEffect(() => {
     const restoreSession = async () => {
@@ -48,13 +57,18 @@ export default function App() {
           const session: Session = JSON.parse(json);
           if (session.accessToken && session.user) {
             api.setToken(session.accessToken);
+            api.setRefreshToken(session.refreshToken || null);
             setUser(session.user);
             setAllowedBollardIds(null);
+
+            // Register device in background
+            api.registerDevice().catch(() => {});
+
             // Fetch fresh dynamic server telemetry
             const [remoteSites, remoteHistory, remoteAlerts] = await Promise.all([
-              api.getSites(),
-              api.getHistory(),
-              api.getAlerts(),
+              api.getSites().catch(() => []),
+              api.getHistory().catch(() => []),
+              api.getAlerts().catch(() => []),
             ]);
             setSites(remoteSites || []);
             setHistory(remoteHistory || []);
@@ -105,9 +119,11 @@ export default function App() {
     try {
       const session = await api.login(email, pass);
       api.setToken(session.accessToken);
+      api.setRefreshToken(session.refreshToken || null);
       setUser(session.user);
       setAllowedBollardIds(null);
       await AsyncStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(session));
+      api.registerDevice().catch(() => {});
       setSuccessMessage("GateLink Cloud Connected");
       await fetchRemoteData();
     } catch (err: any) {
@@ -123,9 +139,11 @@ export default function App() {
     try {
       const session = await api.register(name, email, pass, siteName);
       api.setToken(session.accessToken);
+      api.setRefreshToken(session.refreshToken || null);
       setUser(session.user);
       setAllowedBollardIds(null);
       await AsyncStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(session));
+      api.registerDevice().catch(() => {});
       setSuccessMessage(`Welcome, ${session.user.name}! Account and site registered.`);
       await fetchRemoteData();
     } catch (err: any) {

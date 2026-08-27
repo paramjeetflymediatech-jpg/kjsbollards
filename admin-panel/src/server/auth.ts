@@ -24,7 +24,16 @@ export async function signJwtToken(payload: ActorPayload): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setIssuer("kjs-bollards")
-    .setExpirationTime("24h")
+    .setExpirationTime("30d") // 30 days access token
+    .sign(JWT_SECRET);
+}
+
+export async function signRefreshToken(payload: ActorPayload): Promise<string> {
+  return new SignJWT({ ...payload, type: "refresh" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setIssuer("kjs-bollards")
+    .setExpirationTime("90d") // 90 days refresh token
     .sign(JWT_SECRET);
 }
 
@@ -33,6 +42,18 @@ export async function verifyJwtToken(token: string): Promise<ActorPayload | null
     const { payload } = await jwtVerify(token, JWT_SECRET, {
       issuer: "kjs-bollards",
     });
+    return payload as unknown as ActorPayload;
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function verifyRefreshToken(token: string): Promise<ActorPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET, {
+      issuer: "kjs-bollards",
+    });
+    if ((payload as any).type !== "refresh") return null;
     return payload as unknown as ActorPayload;
   } catch (_) {
     return null;

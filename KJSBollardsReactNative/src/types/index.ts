@@ -11,6 +11,15 @@ export interface Session {
   user: User;
 }
 
+export interface DeviceMetadata {
+  deviceId: string;
+  platform: string;
+  model?: string;
+  osVersion?: string;
+  appVersion?: string;
+  pushToken?: string | null;
+}
+
 export interface AuthorizedUser {
   id: string;
   name: string;

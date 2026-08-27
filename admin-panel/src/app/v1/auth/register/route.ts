@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { hashPassword, signJwtToken } from "@/server/auth";
+import { hashPassword, signJwtToken, signRefreshToken } from "@/server/auth";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { name, email, password, siteName } = body;
+    const { name, email, password, siteName, deviceInfo } = body;
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: "Missing required registration fields" }, { status: 400 });
@@ -43,6 +43,25 @@ export async function POST(req: NextRequest) {
       createdAt: new Date().toISOString(),
     };
     db.sites.push(newSite);
+
+    // Register device info if provided
+    if (deviceInfo && typeof deviceInfo === "object") {
+      const deviceId = deviceInfo.deviceId || `dev-${Date.now()}`;
+      db.userDevices.push({
+        id: `ud-${Date.now()}`,
+        userId: newUser.id,
+        deviceId,
+        platform: deviceInfo.platform || "mobile",
+        model: deviceInfo.model || "Unknown Device",
+        osVersion: deviceInfo.osVersion || "",
+        appVersion: deviceInfo.appVersion || "1.0.0",
+        pushToken: deviceInfo.pushToken || null,
+        lastSeen: new Date().toISOString(),
+        ipAddress: req.headers.get("x-forwarded-for") || "127.0.0.1",
+        createdAt: new Date().toISOString(),
+      });
+    }
+
     await db.save();
 
     const token = await signJwtToken({
@@ -51,8 +70,15 @@ export async function POST(req: NextRequest) {
       role: newUser.role,
     });
 
+    const refreshToken = await signRefreshToken({
+      id: newUser.id,
+      email: newUser.email,
+      role: newUser.role,
+    });
+
     return NextResponse.json({
       accessToken: token,
+      refreshToken,
       user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role },
       site: newSite,
     });

@@ -77,6 +77,20 @@ export interface DBCommandRequest {
   createdAt: string;
 }
 
+export interface DBUserDevice {
+  id: string;
+  userId: string;
+  deviceId: string;
+  platform: "ios" | "android" | "web" | string;
+  model?: string;
+  osVersion?: string;
+  appVersion?: string;
+  pushToken?: string | null;
+  lastSeen: string;
+  ipAddress?: string;
+  createdAt: string;
+}
+
 interface StoredData {
   users: DBUser[];
   sites: DBSite[];
@@ -85,6 +99,7 @@ interface StoredData {
   mqttTelemetry: DBMqttTelemetry[];
   auditLogs: DBAuditLog[];
   commands: DBCommandRequest[];
+  userDevices?: DBUserDevice[];
 }
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -93,12 +108,17 @@ const DB_FILE_PATH = path.join(DATA_DIR, "db.json");
 class PersistentDatabase {
   users: DBUser[] = [];
   sites: DBSite[] = [];
-  bollards: DBBollard[] = [];
+  bollards: DBBollard[];
   gatelinkCloudDevices: DBGateLinkDevice[] = [];
   mqttTelemetry: DBMqttTelemetry[] = [];
   auditLogs: DBAuditLog[] = [];
   commands: DBCommandRequest[] = [];
+  userDevices: DBUserDevice[] = [];
   private initialized = false;
+
+  constructor() {
+    this.bollards = [];
+  }
 
   async save(): Promise<void> {
     try {
@@ -113,6 +133,7 @@ class PersistentDatabase {
         mqttTelemetry: this.mqttTelemetry,
         auditLogs: this.auditLogs,
         commands: this.commands,
+        userDevices: this.userDevices,
       };
       await fs.promises.writeFile(DB_FILE_PATH, JSON.stringify(data, null, 2), "utf-8");
     } catch (err) {
@@ -135,6 +156,7 @@ class PersistentDatabase {
         this.mqttTelemetry = parsed.mqttTelemetry || [];
         this.auditLogs = parsed.auditLogs || [];
         this.commands = parsed.commands || [];
+        this.userDevices = parsed.userDevices || [];
         this.initialized = true;
         return;
       } catch (err) {
