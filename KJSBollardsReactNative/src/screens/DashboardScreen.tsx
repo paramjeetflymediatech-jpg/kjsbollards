@@ -15,13 +15,13 @@ interface DashboardScreenProps {
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
-  sites,
-  alertsCount,
+  sites = [],
+  alertsCount = 0,
   onSelectBollard,
   onRefresh,
-  refreshing,
+  refreshing = false,
 }) => {
-  const allBollards = sites.flatMap((s) => s.bollards);
+  const allBollards = (sites || []).flatMap((s) => s.bollards || []);
   const totalCount = allBollards.length;
   const onlineCount = allBollards.filter((b) => b.online).length;
   const raisedCount = allBollards.filter((b) => b.status === "RAISED").length;
@@ -63,36 +63,49 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       {/* Sites & Controllers List */}
       <View style={styles.sitesHeaderRow}>
         <Text style={styles.sectionHeader}>PERIMETER CONTROLLERS</Text>
-        <Text style={styles.sitesCount}>{sites.length} SITES ACTIVE</Text>
+        <Text style={styles.sitesCount}>{(sites || []).length} SITES ACTIVE</Text>
       </View>
 
-      {sites.map((site) => (
-        <View key={site.id} style={styles.siteCard}>
-          <View style={styles.siteHeader}>
-            <View style={styles.siteInfo}>
-              <Text style={styles.siteName} numberOfLines={1}>
-                {site.name}
-              </Text>
-              <Text style={styles.siteAddress} numberOfLines={1}>
-                {site.address}
-              </Text>
-            </View>
-            <View style={styles.unitsBadge}>
-              <Text style={styles.unitsBadgeText}>{site.bollards.length} UNITS</Text>
-            </View>
-          </View>
-
-          <View style={styles.bollardsList}>
-            {site.bollards.map((bollard) => (
-              <BollardCard
-                key={bollard.id}
-                bollard={bollard}
-                onPress={() => onSelectBollard(bollard)}
-              />
-            ))}
-          </View>
+      {(sites || []).length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyText}>No sites or bollards configured yet.</Text>
+          <Text style={styles.emptySubtext}>
+            Go to the SITES tab and tap "+ ADD BOLLARD" to claim hardware.
+          </Text>
         </View>
-      ))}
+      ) : (
+        sites.map((site) => (
+          <View key={site.id} style={styles.siteCard}>
+            <View style={styles.siteHeader}>
+              <View style={styles.siteInfo}>
+                <Text style={styles.siteName} numberOfLines={1}>
+                  {site.name || "Site"}
+                </Text>
+                <Text style={styles.siteAddress} numberOfLines={1}>
+                  {site.address || "Main Facility"}
+                </Text>
+              </View>
+              <View style={styles.unitsBadge}>
+                <Text style={styles.unitsBadgeText}>{(site.bollards || []).length} UNITS</Text>
+              </View>
+            </View>
+
+            <View style={styles.bollardsList}>
+              {(site.bollards || []).length === 0 ? (
+                <Text style={styles.noBollardsText}>No bollards added to this site yet.</Text>
+              ) : (
+                (site.bollards || []).map((bollard) => (
+                  <BollardCard
+                    key={bollard.id}
+                    bollard={bollard}
+                    onPress={() => onSelectBollard(bollard)}
+                  />
+                ))
+              )}
+            </View>
+          </View>
+        ))
+      )}
     </ScrollView>
   );
 };
@@ -111,24 +124,47 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1.5,
     color: Colors.ElectricCyan,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   metricsRow: {
     flexDirection: "row",
-    marginBottom: 18,
+    marginBottom: 20,
   },
   spacer: {
-    width: 6,
+    width: 8,
   },
   sitesHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   sitesCount: {
     fontSize: responsiveFont(10),
     color: Colors.TextMuted,
+    fontWeight: "700",
+  },
+  emptyCard: {
+    backgroundColor: Colors.SurfaceDark,
+    borderRadius: 18,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: Colors.SurfaceHighlight,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  emptyText: {
+    color: Colors.TextWhite,
+    fontSize: responsiveFont(13),
+    fontWeight: "700",
+  },
+  emptySubtext: {
+    color: Colors.TextMuted,
+    fontSize: responsiveFont(10),
+    textAlign: "center",
+    marginTop: 6,
   },
   siteCard: {
     backgroundColor: Colors.SurfaceDark,
@@ -171,5 +207,11 @@ const styles = StyleSheet.create({
   },
   bollardsList: {
     marginTop: 2,
+  },
+  noBollardsText: {
+    color: Colors.TextMuted,
+    fontSize: responsiveFont(10),
+    fontStyle: "italic",
+    paddingVertical: 4,
   },
 });

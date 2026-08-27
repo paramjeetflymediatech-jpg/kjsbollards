@@ -6,8 +6,9 @@ import {
   Text,
   TouchableOpacity,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { User, Site, Bollard, EventItem, ScreenType, Movement, AuthorizedUser } from "./src/types";
+import { User, Site, Bollard, EventItem, ScreenType, Movement, AuthorizedUser, Session } from "./src/types";
 import { Colors } from "./src/theme/colors";
 import { responsiveFont } from "./src/theme/responsive";
 import { api } from "./src/api/client";
@@ -19,6 +20,8 @@ import { EventsScreen } from "./src/screens/EventsScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { AddBollardModal } from "./src/components/AddBollardModal";
 import { AccessSharingModal } from "./src/components/AccessSharingModal";
+
+const STORAGE_KEY_SESSION = "@kjs_bollards_session";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -35,6 +38,34 @@ export default function App() {
   const [isMoving, setIsMoving] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [accessModalVisible, setAccessModalVisible] = useState(false);
+
+  // Restore authenticated session from persistent storage on app launch
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const json = await AsyncStorage.getItem(STORAGE_KEY_SESSION);
+        if (json) {
+          const session: Session = JSON.parse(json);
+          if (session.accessToken && session.user) {
+            api.setToken(session.accessToken);
+            setUser(session.user);
+            setAllowedBollardIds(null);
+            // Fetch fresh dynamic server telemetry
+            const [remoteSites, remoteHistory, remoteAlerts] = await Promise.all([
+              api.getSites(),
+              api.getHistory(),
+              api.getAlerts(),
+            ]);
+            setSites(remoteSites || []);
+            setHistory(remoteHistory || []);
+            setAlerts(remoteAlerts || []);
+          }
+        }
+      } catch (_) {
+      }
+    };
+    restoreSession();
+  }, []);
 
   // Filter sites and bollards based on user authorization scope
   const visibleSites: Site[] = sites
@@ -76,6 +107,7 @@ export default function App() {
       api.setToken(session.accessToken);
       setUser(session.user);
       setAllowedBollardIds(null);
+      await AsyncStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(session));
       setSuccessMessage("GateLink Cloud Connected");
       await fetchRemoteData();
     } catch (err: any) {
@@ -93,6 +125,7 @@ export default function App() {
       api.setToken(session.accessToken);
       setUser(session.user);
       setAllowedBollardIds(null);
+      await AsyncStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(session));
       setSuccessMessage(`Welcome, ${session.user.name}! Account and site registered.`);
       await fetchRemoteData();
     } catch (err: any) {
@@ -102,7 +135,7 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     api.setToken(null);
     setUser(null);
     setAllowedBollardIds(null);
@@ -111,6 +144,9 @@ export default function App() {
     setAlerts([]);
     setScreen("dashboard");
     setSelectedBollard(null);
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY_SESSION);
+    } catch (_) {}
   };
 
   const handleAddBollard = async (siteId: string, newBollard: Bollard) => {

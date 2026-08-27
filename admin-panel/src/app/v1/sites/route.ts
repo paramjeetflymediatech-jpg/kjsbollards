@@ -8,31 +8,54 @@ export async function GET(req: NextRequest) {
 
   await db.init();
 
-  const userSites = db.sites
-    .filter((s) => actor.role === "admin" || s.ownerId === actor.id || !s.ownerId)
-    .map((s) => {
-      const bollards = db.bollards.filter((b) => b.siteId === s.id);
-      return {
-        id: s.id,
-        name: s.name,
-        address: s.address || "Main Site Location",
-        ownerId: s.ownerId,
-        authorizedUsers: [],
-        bollards: bollards.map((b) => ({
-          id: b.id,
-          name: b.name,
-          status: b.status,
-          online: true,
-          safetyOk: true,
-          lastSeen: "Just now",
-          serial: b.deviceCode,
-          isClaimed: true,
-          movementSeconds: b.openDuration || 4.5,
-        })),
-      };
-    });
+  let userSites = db.sites.filter(
+    (s) => actor.role === "admin" || s.ownerId === actor.id || !s.ownerId
+  );
 
-  return NextResponse.json(userSites);
+  // If no site exists yet for this user, automatically create a default primary site
+  if (userSites.length === 0) {
+    const defaultSite = {
+      id: `site-${Date.now()}`,
+      name: "Primary Perimeter Site",
+      address: "Primary Security Location",
+      ownerId: actor.id,
+      enabled: true,
+      createdAt: new Date().toISOString(),
+    };
+    db.sites.push(defaultSite);
+    userSites = [defaultSite];
+  }
+
+  // Find all bollards belonging to this user or admin
+  const allBollards = db.bollards.filter((b) => b.enabled);
+
+  const formatted = userSites.map((s, index) => {
+    // Attach matching bollards, or unassigned bollards to the first site
+    const bollards = allBollards.filter(
+      (b) => b.siteId === s.id || (!b.siteId && index === 0)
+    );
+
+    return {
+      id: s.id,
+      name: s.name,
+      address: s.address || "Main Site Location",
+      ownerId: s.ownerId,
+      authorizedUsers: [],
+      bollards: bollards.map((b) => ({
+        id: b.id,
+        name: b.name,
+        status: b.status,
+        online: true,
+        safetyOk: true,
+        lastSeen: "Just now",
+        serial: b.deviceCode,
+        isClaimed: true,
+        movementSeconds: b.openDuration || 4.5,
+      })),
+    };
+  });
+
+  return NextResponse.json(formatted);
 }
 
 export async function POST(req: NextRequest) {
@@ -58,12 +81,15 @@ export async function POST(req: NextRequest) {
 
   db.sites.push(newSite);
 
-  return NextResponse.json({
-    id: newSite.id,
-    name: newSite.name,
-    address: newSite.address,
-    ownerId: newSite.ownerId,
-    authorizedUsers: [],
-    bollards: [],
-  }, { status: 201 });
+  return NextResponse.json(
+    {
+      id: newSite.id,
+      name: newSite.name,
+      address: newSite.address,
+      ownerId: newSite.ownerId,
+      authorizedUsers: [],
+      bollards: [],
+    },
+    { status: 201 }
+  );
 }

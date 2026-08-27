@@ -31,8 +31,33 @@ export async function POST(req: NextRequest) {
 
   await db.init();
   const cleanCode = String(deviceCode).trim().toUpperCase();
-  if (db.bollards.some((b) => b.deviceCode === cleanCode)) {
-    return NextResponse.json({ error: "Device code already commissioned" }, { status: 409 });
+
+  // If already existing, allow re-linking or updating rather than blocking
+  const existingIndex = db.bollards.findIndex((b) => b.deviceCode === cleanCode);
+
+  // Find or create target site for this user
+  let targetSiteId = siteId;
+  if (!targetSiteId || !db.sites.some((s) => s.id === targetSiteId)) {
+    let userSite = db.sites.find((s) => s.ownerId === actor.id || !s.ownerId);
+    if (!userSite) {
+      userSite = {
+        id: `site-${Date.now()}`,
+        name: "Primary Perimeter Site",
+        address: "Primary Security Location",
+        ownerId: actor.id,
+        enabled: true,
+        createdAt: new Date().toISOString(),
+      };
+      db.sites.push(userSite);
+    }
+    targetSiteId = userSite.id;
+  }
+
+  if (existingIndex >= 0) {
+    db.bollards[existingIndex].name = name ? String(name).trim() : db.bollards[existingIndex].name;
+    db.bollards[existingIndex].siteId = targetSiteId;
+    db.bollards[existingIndex].enabled = true;
+    return NextResponse.json(db.bollards[existingIndex], { status: 200 });
   }
 
   const newBollard = {
@@ -41,7 +66,7 @@ export async function POST(req: NextRequest) {
     deviceCode: cleanCode,
     status: "RAISED" as const,
     enabled: true,
-    siteId: siteId || null,
+    siteId: targetSiteId,
     cycleCount: 0,
     openDuration: Number(openDuration) || 6,
     createdAt: new Date().toISOString(),

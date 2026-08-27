@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -24,19 +24,25 @@ interface AccessSharingModalProps {
 
 export const AccessSharingModal: React.FC<AccessSharingModalProps> = ({
   visible,
-  sites,
+  sites = [],
   onClose,
   onGrantAccess,
   onRevokeAccess,
 }) => {
   const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedSiteId, setSelectedSiteId] = useState<string>(sites[0]?.id || "1");
+  const [selectedSiteId, setSelectedSiteId] = useState<string>(sites[0]?.id || "");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"family" | "staff" | "viewer">("family");
   const [selectedBollardIds, setSelectedBollardIds] = useState<string[]>([]);
   const [allGates, setAllGates] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (sites.length > 0 && (!selectedSiteId || !sites.some((s) => s.id === selectedSiteId))) {
+      setSelectedSiteId(sites[0].id);
+    }
+  }, [sites, selectedSiteId]);
 
   const selectedSite = sites.find((s) => s.id === selectedSiteId) || sites[0];
   const authorizedList = selectedSite?.authorizedUsers || [];
@@ -51,6 +57,10 @@ export const AccessSharingModal: React.FC<AccessSharingModalProps> = ({
   };
 
   const handleAdd = () => {
+    if (!selectedSite) {
+      setError("Please create or select a site first.");
+      return;
+    }
     if (!name.trim()) {
       setError("Please enter the person's name (e.g. Sarah / Jane).");
       return;
@@ -73,7 +83,7 @@ export const AccessSharingModal: React.FC<AccessSharingModalProps> = ({
       bollardIds: allGates ? [] : selectedBollardIds,
     };
 
-    onGrantAccess(selectedSiteId, newUser);
+    onGrantAccess(selectedSite.id, newUser);
     setName("");
     setEmail("");
     setSelectedBollardIds([]);
@@ -82,10 +92,11 @@ export const AccessSharingModal: React.FC<AccessSharingModalProps> = ({
     setShowAddForm(false);
   };
 
-  const getBollardNames = (bIds: string[], site: Site) => {
+  const getBollardNames = (bIds: string[], site?: Site) => {
     if (!bIds || bIds.length === 0) return "All Site Gates";
+    if (!site || !site.bollards) return "All Site Gates";
     return bIds
-      .map((id) => site.bollards.find((b) => b.id === id)?.name || id)
+      .map((id) => site.bollards?.find((b) => b.id === id)?.name || id)
       .join(", ");
   };
 
@@ -121,191 +132,209 @@ export const AccessSharingModal: React.FC<AccessSharingModalProps> = ({
           </View>
 
           {/* Site Selector Tabs */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.siteTabsScroll}>
-            {sites.map((s) => {
-              const isSelected = s.id === selectedSiteId;
-              return (
-                <TouchableOpacity
-                  key={s.id}
-                  style={[styles.siteTab, isSelected && styles.siteTabSelected]}
-                  onPress={() => {
-                    setSelectedSiteId(s.id);
-                    setSelectedBollardIds([]);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.siteTabText, isSelected && styles.siteTabTextSelected]}>
-                    {s.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          {sites.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.siteTabsScroll}>
+              {sites.map((s) => {
+                const isSelected = s.id === selectedSite?.id;
+                return (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[styles.siteTab, isSelected && styles.siteTabSelected]}
+                    onPress={() => {
+                      setSelectedSiteId(s.id);
+                      setSelectedBollardIds([]);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.siteTabText, isSelected && styles.siteTabTextSelected]}>
+                      {s.name || "Site"}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          ) : null}
 
           <ScrollView showsVerticalScrollIndicator={false} style={styles.listScroll}>
-            {/* List of Authorized Users */}
-            <View style={styles.listHeaderRow}>
-              <Text style={styles.sectionHeader}>AUTHORIZED PERSONS ({authorizedList.length})</Text>
-              {!showAddForm && (
-                <TouchableOpacity
-                  style={styles.addTriggerBtn}
-                  onPress={() => setShowAddForm(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.addTriggerText}>＋ GRANT GATE ACCESS</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {authorizedList.length === 0 ? (
+            {/* If no sites registered */}
+            {sites.length === 0 ? (
               <View style={styles.emptyCard}>
-                <Text style={styles.emptyText}>No additional users authorized for this site yet.</Text>
+                <Text style={styles.emptyText}>No sites configured yet.</Text>
                 <Text style={styles.emptySubtext}>
-                  Tap "GRANT GATE ACCESS" to assign specific gates (e.g. Main Entrance) to family or staff.
+                  Add or sync a site first to manage authorized access.
                 </Text>
               </View>
             ) : (
-              authorizedList.map((u) => (
-                <View key={u.id} style={styles.userCard}>
-                  <View style={styles.userAvatar}>
-                    <Text style={styles.avatarLetter}>{u.name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <View style={styles.userInfo}>
-                    <Text style={styles.userName}>{u.name}</Text>
-                    <Text style={styles.userEmail}>{u.email}</Text>
-                    
-                    {/* Specific Gates Assigned Badge */}
-                    <View style={styles.gateScopeBadge}>
-                      <Text style={styles.gateScopeLabel}>PERMITTED GATES:</Text>
-                      <Text style={styles.gateScopeNames} numberOfLines={2}>
-                        {getBollardNames(u.bollardIds, selectedSite)}
-                      </Text>
-                    </View>
-
-                    <View style={styles.roleTag}>
-                      <Text style={styles.roleTagText}>
-                        {u.role === "family" ? "FAMILY / SPOUSE" : u.role.toUpperCase()}
-                      </Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.revokeBtn}
-                    onPress={() => onRevokeAccess(selectedSiteId, u.id)}
-                    activeOpacity={0.8}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Text style={styles.revokeText}>REVOKE</Text>
-                  </TouchableOpacity>
-                </View>
-              ))
-            )}
-
-            {/* Add User Form Drawer */}
-            {showAddForm && (
-              <View style={styles.formCard}>
-                <Text style={styles.formTitle}>AUTHORIZE PERSON FOR SPECIFIC GATES</Text>
-                <Text style={styles.formSubtitle}>
-                  Choose which entrance/gate areas this person is allowed to operate.
-                </Text>
-
-                <Text style={styles.label}>FULL NAME / RELATION</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. Sarah (Wife) or Driver / Visitor"
-                  placeholderTextColor={Colors.TextMuted}
-                  value={name}
-                  onChangeText={setName}
-                />
-
-                <Text style={styles.label}>THEIR EMAIL ADDRESS</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. sarah@example.com"
-                  placeholderTextColor={Colors.TextMuted}
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                />
-
-                {/* Specific Gate Selection Checkboxes */}
-                <Text style={styles.label}>PERMITTED AREAS / GATES</Text>
-                
-                <TouchableOpacity
-                  style={[styles.gateCheckboxRow, allGates && styles.gateCheckboxRowSelected]}
-                  onPress={() => setAllGates(!allGates)}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.checkbox, allGates && styles.checkboxChecked]}>
-                    {allGates && <Text style={styles.checkMark}>✓</Text>}
-                  </View>
-                  <View style={styles.gateTextCol}>
-                    <Text style={[styles.gateTitle, allGates && styles.gateTitleSelected]}>
-                      All Gates in {selectedSite.name}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                {!allGates &&
-                  siteBollards.map((b) => {
-                    const isChecked = selectedBollardIds.includes(b.id);
-                    return (
-                      <TouchableOpacity
-                        key={b.id}
-                        style={[styles.gateCheckboxRow, isChecked && styles.gateCheckboxRowSelected]}
-                        onPress={() => toggleBollardSelection(b.id)}
-                        activeOpacity={0.8}
-                      >
-                        <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
-                          {isChecked && <Text style={styles.checkMark}>✓</Text>}
-                        </View>
-                        <View style={styles.gateTextCol}>
-                          <Text style={[styles.gateTitle, isChecked && styles.gateTitleSelected]}>
-                            {b.name}
-                          </Text>
-                          <Text style={styles.gateSub}>{b.serial || "RC200"}</Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-
-                <Text style={styles.label}>ACCESS ROLE</Text>
-                <View style={styles.roleSelector}>
-                  {(["family", "staff", "viewer"] as const).map((r) => (
+              <>
+                {/* List of Authorized Users */}
+                <View style={styles.listHeaderRow}>
+                  <Text style={styles.sectionHeader}>
+                    AUTHORIZED PERSONS ({authorizedList.length})
+                  </Text>
+                  {!showAddForm && (
                     <TouchableOpacity
-                      key={r}
-                      style={[styles.roleOption, role === r && styles.roleOptionSelected]}
-                      onPress={() => setRole(r)}
+                      style={styles.addTriggerBtn}
+                      onPress={() => setShowAddForm(true)}
                       activeOpacity={0.8}
                     >
-                      <Text style={[styles.roleText, role === r && styles.roleTextSelected]}>
-                        {r === "family" ? "Family (Raise/Lower)" : r === "staff" ? "Staff Operator" : "View Only"}
-                      </Text>
+                      <Text style={styles.addTriggerText}>＋ GRANT GATE ACCESS</Text>
                     </TouchableOpacity>
-                  ))}
+                  )}
                 </View>
 
-                {error ? (
-                  <View style={styles.errorBox}>
-                    <Text style={styles.errorText}>{error}</Text>
+                {authorizedList.length === 0 ? (
+                  <View style={styles.emptyCard}>
+                    <Text style={styles.emptyText}>No additional users authorized for this site yet.</Text>
+                    <Text style={styles.emptySubtext}>
+                      Tap "GRANT GATE ACCESS" to assign specific gates (e.g. Main Entrance) to family or staff.
+                    </Text>
                   </View>
-                ) : null}
+                ) : (
+                  authorizedList.map((u) => (
+                    <View key={u.id} style={styles.userCard}>
+                      <View style={styles.userAvatar}>
+                        <Text style={styles.avatarLetter}>
+                          {(u.name || "U").charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.userInfo}>
+                        <Text style={styles.userName}>{u.name || "User"}</Text>
+                        <Text style={styles.userEmail}>{u.email || ""}</Text>
+                        
+                        {/* Specific Gates Assigned Badge */}
+                        <View style={styles.gateScopeBadge}>
+                          <Text style={styles.gateScopeLabel}>PERMITTED GATES:</Text>
+                          <Text style={styles.gateScopeNames} numberOfLines={2}>
+                            {getBollardNames(u.bollardIds, selectedSite)}
+                          </Text>
+                        </View>
 
-                <TouchableOpacity style={styles.submitBtn} onPress={handleAdd} activeOpacity={0.85}>
-                  <Text style={styles.submitBtnText}>CONFIRM & GRANT AREA ACCESS</Text>
-                </TouchableOpacity>
+                        <View style={styles.roleTag}>
+                          <Text style={styles.roleTagText}>
+                            {u.role === "family" ? "FAMILY / SPOUSE" : (u.role || "MEMBER").toUpperCase()}
+                          </Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.revokeBtn}
+                        onPress={() => selectedSite && onRevokeAccess(selectedSite.id, u.id)}
+                        activeOpacity={0.8}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Text style={styles.revokeText}>REVOKE</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
 
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => {
-                    setShowAddForm(false);
-                    setError(null);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.cancelBtnText}>CANCEL</Text>
-                </TouchableOpacity>
-              </View>
+                {/* Add User Form Drawer */}
+                {showAddForm && (
+                  <View style={styles.formCard}>
+                    <Text style={styles.formTitle}>AUTHORIZE PERSON FOR SPECIFIC GATES</Text>
+                    <Text style={styles.formSubtitle}>
+                      Choose which entrance/gate areas this person is allowed to operate.
+                    </Text>
+
+                    <Text style={styles.label}>FULL NAME / RELATION</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. Sarah (Wife) or Driver / Visitor"
+                      placeholderTextColor={Colors.TextMuted}
+                      value={name}
+                      onChangeText={setName}
+                    />
+
+                    <Text style={styles.label}>THEIR EMAIL ADDRESS</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. sarah@example.com"
+                      placeholderTextColor={Colors.TextMuted}
+                      value={email}
+                      onChangeText={setEmail}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                    />
+
+                    {/* Specific Gate Selection Checkboxes */}
+                    <Text style={styles.label}>PERMITTED AREAS / GATES</Text>
+                    
+                    <TouchableOpacity
+                      style={[styles.gateCheckboxRow, allGates && styles.gateCheckboxRowSelected]}
+                      onPress={() => setAllGates(!allGates)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.checkbox, allGates && styles.checkboxChecked]}>
+                        {allGates && <Text style={styles.checkMark}>✓</Text>}
+                      </View>
+                      <View style={styles.gateTextCol}>
+                        <Text style={[styles.gateTitle, allGates && styles.gateTitleSelected]}>
+                          All Gates in {selectedSite?.name || "Selected Site"}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {!allGates &&
+                      siteBollards.map((b) => {
+                        const isChecked = selectedBollardIds.includes(b.id);
+                        return (
+                          <TouchableOpacity
+                            key={b.id}
+                            style={[styles.gateCheckboxRow, isChecked && styles.gateCheckboxRowSelected]}
+                            onPress={() => toggleBollardSelection(b.id)}
+                            activeOpacity={0.8}
+                          >
+                            <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+                              {isChecked && <Text style={styles.checkMark}>✓</Text>}
+                            </View>
+                            <View style={styles.gateTextCol}>
+                              <Text style={[styles.gateTitle, isChecked && styles.gateTitleSelected]}>
+                                {b.name}
+                              </Text>
+                              <Text style={styles.gateSub}>{b.serial || "RC200"}</Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+
+                    <Text style={styles.label}>ACCESS ROLE</Text>
+                    <View style={styles.roleSelector}>
+                      {(["family", "staff", "viewer"] as const).map((r) => (
+                        <TouchableOpacity
+                          key={r}
+                          style={[styles.roleOption, role === r && styles.roleOptionSelected]}
+                          onPress={() => setRole(r)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={[styles.roleText, role === r && styles.roleTextSelected]}>
+                            {r === "family" ? "Family (Raise/Lower)" : r === "staff" ? "Staff Operator" : "View Only"}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    {error ? (
+                      <View style={styles.errorBox}>
+                        <Text style={styles.errorText}>{error}</Text>
+                      </View>
+                    ) : null}
+
+                    <TouchableOpacity style={styles.submitBtn} onPress={handleAdd} activeOpacity={0.85}>
+                      <Text style={styles.submitBtnText}>CONFIRM & GRANT AREA ACCESS</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.cancelBtn}
+                      onPress={() => {
+                        setShowAddForm(false);
+                        setError(null);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.cancelBtnText}>CANCEL</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
             )}
           </ScrollView>
         </View>

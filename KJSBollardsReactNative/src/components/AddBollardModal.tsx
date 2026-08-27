@@ -19,25 +19,29 @@ interface AddBollardModalProps {
   visible: boolean;
   sites: Site[];
   onClose: () => void;
-  onAddBollard: (siteId: string, bollard: Bollard) => void;
+  onAddBollard?: (siteId: string, bollard: Bollard) => void;
+  onAdd?: (siteId: string, bollard: Bollard) => void;
 }
 
 export const AddBollardModal: React.FC<AddBollardModalProps> = ({
   visible,
-  sites,
+  sites = [],
   onClose,
   onAddBollard,
+  onAdd,
 }) => {
   const [name, setName] = useState("");
   const [deviceCode, setDeviceCode] = useState("");
-  const [selectedSiteId, setSelectedSiteId] = useState<string>(sites[0]?.id || "1");
+  const [selectedSiteId, setSelectedSiteId] = useState<string>(sites[0]?.id || "");
   const [safetyLoop, setSafetyLoop] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Check if serial already registered across any site
   const isSerialTaken = (serial: string): boolean => {
     const formatted = serial.trim().toUpperCase();
-    return sites.some((s) => s.bollards.some((b) => (b.serial || "").toUpperCase() === formatted));
+    return (sites || []).some((s) =>
+      (s.bollards || []).some((b) => (b.serial || "").toUpperCase() === formatted)
+    );
   };
 
   const handleSave = () => {
@@ -60,6 +64,8 @@ export const AddBollardModal: React.FC<AddBollardModalProps> = ({
       return;
     }
 
+    const targetSiteId = selectedSiteId || sites[0]?.id || "site-1";
+
     const newBollard: Bollard = {
       id: "b-" + Date.now(),
       name: name.trim(),
@@ -71,14 +77,11 @@ export const AddBollardModal: React.FC<AddBollardModalProps> = ({
       isClaimed: true,
     };
 
-    api.commissionBollard({
-      siteId: selectedSiteId,
-      name: name.trim(),
-      deviceCode: formattedSerial,
-      requireSafetyInput: safetyLoop
-    }).catch(() => {});
+    const callback = onAddBollard || onAdd;
+    if (callback) {
+      callback(targetSiteId, newBollard);
+    }
 
-    onAddBollard(selectedSiteId, newBollard);
     // Reset fields
     setName("");
     setDeviceCode("");

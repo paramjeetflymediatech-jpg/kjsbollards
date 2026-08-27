@@ -12,7 +12,7 @@ interface SitesScreenProps {
 }
 
 export const SitesScreen: React.FC<SitesScreenProps> = ({
-  sites,
+  sites = [],
   onSelectBollard,
   onOpenAddModal,
 }) => {
@@ -39,33 +39,46 @@ export const SitesScreen: React.FC<SitesScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      {sites.map((site) => (
-        <View key={site.id} style={styles.siteCard}>
-          <View style={styles.siteHeader}>
-            <View style={styles.siteInfo}>
-              <Text style={styles.siteName} numberOfLines={1}>
-                {site.name}
-              </Text>
-              <Text style={styles.siteAddress} numberOfLines={1}>
-                {site.address}
-              </Text>
-            </View>
-            <View style={styles.unitsBadge}>
-              <Text style={styles.unitsBadgeText}>{site.bollards.length} UNITS</Text>
-            </View>
-          </View>
-
-          <View style={styles.bollardsContainer}>
-            {site.bollards.map((bollard) => (
-              <BollardCard
-                key={bollard.id}
-                bollard={bollard}
-                onPress={() => onSelectBollard(bollard)}
-              />
-            ))}
-          </View>
+      {sites.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyText}>No perimeter sites registered yet.</Text>
+          <Text style={styles.emptySubtext}>
+            Tap "+ ADD BOLLARD" above to register and commission hardware to your account.
+          </Text>
         </View>
-      ))}
+      ) : (
+        sites.map((site) => (
+          <View key={site.id} style={styles.siteCard}>
+            <View style={styles.siteHeader}>
+              <View style={styles.siteInfo}>
+                <Text style={styles.siteName} numberOfLines={1}>
+                  {site.name || "Site"}
+                </Text>
+                <Text style={styles.siteAddress} numberOfLines={1}>
+                  {site.address || "Main Facility"}
+                </Text>
+              </View>
+              <View style={styles.unitsBadge}>
+                <Text style={styles.unitsBadgeText}>{(site.bollards || []).length} UNITS</Text>
+              </View>
+            </View>
+
+            <View style={styles.bollardsContainer}>
+              {(site.bollards || []).length === 0 ? (
+                <Text style={styles.noBollardsText}>No bollards added to this site yet.</Text>
+              ) : (
+                (site.bollards || []).map((bollard) => (
+                  <BollardCard
+                    key={bollard.id}
+                    bollard={bollard}
+                    onPress={() => onSelectBollard(bollard)}
+                  />
+                ))
+              )}
+            </View>
+          </View>
+        ))
+      )}
     </ScrollView>
   );
 };
@@ -118,6 +131,29 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.5,
   },
+  emptyCard: {
+    backgroundColor: Colors.SurfaceDark,
+    borderRadius: 18,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: Colors.SurfaceHighlight,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+  emptyText: {
+    color: Colors.TextWhite,
+    fontSize: responsiveFont(13),
+    fontWeight: "700",
+  },
+  emptySubtext: {
+    color: Colors.TextMuted,
+    fontSize: responsiveFont(10),
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 15,
+  },
   siteCard: {
     backgroundColor: Colors.SurfaceDark,
     borderRadius: 18,
@@ -159,5 +195,11 @@ const styles = StyleSheet.create({
   },
   bollardsContainer: {
     marginTop: 4,
+  },
+  noBollardsText: {
+    color: Colors.TextMuted,
+    fontSize: responsiveFont(10),
+    fontStyle: "italic",
+    paddingVertical: 4,
   },
 });
