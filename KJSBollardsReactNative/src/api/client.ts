@@ -11,11 +11,12 @@ import {
   AuthorizedUser
 } from "../types";
 
-const DEFAULT_DEV_URL =
-  Platform.OS === "android" ? "http://10.0.2.2:8080" : "http://localhost:8080";
+// const DEFAULT_DEV_URL =
+//   Platform.OS === "android" ? "http://10.0.2.2:3000" : "http://localhost:3000";
 
+const DEFAULT_DEV_URL = "https://api.kjsbollards.co.uk";
 class ApiClient {
-  private baseUrl: string = "https://api.kjsbollards.co.uk";
+  private baseUrl: string = DEFAULT_DEV_URL;
   private token: string | null = null;
 
   public setBaseUrl(url: string) {

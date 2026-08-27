@@ -182,31 +182,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 </Text>
               )}
             </TouchableOpacity>
-
-            {/* Granular Demo Persona Toggles */}
-            {!isRegisterMode && (
-              <View style={styles.demoSection}>
-                <Text style={styles.demoSectionLabel}>QUICK SIMULATION MODES</Text>
-
-                {/* Master Owner Demo */}
-                <TouchableOpacity style={styles.demoBtn} onPress={onDemoOwner} activeOpacity={0.85}>
-                  <Text style={styles.demoBtnIcon}>👑</Text>
-                  <View style={styles.demoBtnTextCol}>
-                    <Text style={styles.demoBtnTitle}>Primary Owner Mode</Text>
-                    <Text style={styles.demoBtnDesc}>Full access + Hardware serial claiming</Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Spouse Restricted Area Demo */}
-                <TouchableOpacity style={styles.demoSpouseBtn} onPress={onDemoSpouse} activeOpacity={0.85}>
-                  <Text style={styles.demoBtnIcon}>👩</Text>
-                  <View style={styles.demoBtnTextCol}>
-                    <Text style={styles.demoSpouseTitle}>Authorized Spouse (Sarah)</Text>
-                    <Text style={styles.demoSpouseDesc}>Only Main Entry & Park Gate access</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
 
           {/* Error Alert */}
