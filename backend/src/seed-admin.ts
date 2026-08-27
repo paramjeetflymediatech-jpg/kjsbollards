@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { sequelize } from "./db.js";
+import { sequelize } from "./database/index.js";
 import { User } from "./models/index.js";
 
 const email = process.env.KJS_ADMIN_EMAIL?.trim().toLowerCase();

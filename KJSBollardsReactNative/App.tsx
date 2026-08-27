@@ -133,27 +133,15 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const newOwner: User = {
-        id: "owner-" + Date.now(),
-        name: name.trim() || "Primary Owner",
-        email: email.trim().toLowerCase(),
-        role: "owner",
-      };
-      const newSite: Site = {
-        id: "site-" + Date.now(),
-        name: siteName.trim() || "My Security Perimeter",
-        address: "Primary Residence / Facility",
-        ownerId: newOwner.id,
-        bollards: [],
-        authorizedUsers: [],
-      };
-      setUser(newOwner);
-      setSites((prev) => [newSite, ...prev]);
+      const session = await api.register(name, email, pass, siteName);
+      api.setToken(session.accessToken);
+      setUser(session.user);
       setAllowedBollardIds(null);
-      setIsLive(false);
-      setSuccessMessage(`Welcome, ${newOwner.name}! Account registered as Master Owner.`);
+      setIsLive(true);
+      setSuccessMessage(`Welcome, ${session.user.name}! Account and site registered in Cloud.`);
+      await fetchRemoteData();
     } catch (err: any) {
-      setError(err.message || "Failed to register owner account.");
+      setError(err.message || "Failed to register owner account with database.");
     } finally {
       setLoading(false);
     }
@@ -212,70 +200,119 @@ export default function App() {
     }
   };
 
-  const handleAddBollard = (siteId: string, newBollard: Bollard) => {
-    setSites((prev) =>
-      prev.map((s) => (s.id === siteId ? { ...s, bollards: [...s.bollards, newBollard] } : s))
-    );
-    setHistory((prev) => [
-      {
-        id: "e-" + Date.now(),
-        title: "Hardware Serial Locked",
-        detail: `Registered and locked serial ${newBollard.serial} to your owner account.`,
-        timestamp: new Date().toLocaleTimeString(),
-        severity: "info",
-      },
-      ...prev,
-    ]);
-    setSuccessMessage(`Registered and locked ${newBollard.name}`);
+  const handleAddBollard = async (siteId: string, newBollard: Bollard) => {
+    if (isLive) {
+      setLoading(true);
+      try {
+        await api.commissionBollard({
+          siteId,
+          name: newBollard.name,
+          deviceCode: newBollard.serial || ("device-" + Date.now()),
+          movementSeconds: newBollard.movementSeconds || 4.5,
+        });
+        setSuccessMessage(`Registered and commissioned ${newBollard.name}`);
+        await fetchRemoteData();
+      } catch (err: any) {
+        setError(err.message || "Failed to commission bollard to cloud database.");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setSites((prev) =>
+        prev.map((s) => (s.id === siteId ? { ...s, bollards: [...s.bollards, newBollard] } : s))
+      );
+      setHistory((prev) => [
+        {
+          id: "e-" + Date.now(),
+          title: "Hardware Serial Locked",
+          detail: `Registered and locked serial ${newBollard.serial} to your owner account.`,
+          timestamp: new Date().toLocaleTimeString(),
+          severity: "info",
+        },
+        ...prev,
+      ]);
+      setSuccessMessage(`Registered and locked ${newBollard.name}`);
+    }
   };
 
-  const handleGrantAccess = (siteId: string, newUser: AuthorizedUser) => {
-    setSites((prev) =>
-      prev.map((s) =>
-        s.id === siteId
-          ? { ...s, authorizedUsers: [...(s.authorizedUsers || []), newUser] }
-          : s
-      )
-    );
-    setHistory((prev) => [
-      {
-        id: "e-" + Date.now(),
-        title: "Gate Access Granted",
-        detail: `Granted access to ${newUser.name} (${newUser.email}).`,
-        timestamp: new Date().toLocaleTimeString(),
-        severity: "info",
-      },
-      ...prev,
-    ]);
-    setSuccessMessage(`Access granted to ${newUser.name} (${newUser.email})`);
+  const handleGrantAccess = async (siteId: string, newUser: AuthorizedUser) => {
+    if (isLive) {
+      setLoading(true);
+      try {
+        await api.grantAccess(siteId, {
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role,
+          bollardIds: newUser.bollardIds || [],
+        });
+        setSuccessMessage(`Access granted to ${newUser.name} (${newUser.email})`);
+        await fetchRemoteData();
+      } catch (err: any) {
+        setError(err.message || "Failed to save user access to database.");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setSites((prev) =>
+        prev.map((s) =>
+          s.id === siteId
+            ? { ...s, authorizedUsers: [...(s.authorizedUsers || []), newUser] }
+            : s
+        )
+      );
+      setHistory((prev) => [
+        {
+          id: "e-" + Date.now(),
+          title: "Gate Access Granted",
+          detail: `Granted access to ${newUser.name} (${newUser.email}).`,
+          timestamp: new Date().toLocaleTimeString(),
+          severity: "info",
+        },
+        ...prev,
+      ]);
+      setSuccessMessage(`Access granted to ${newUser.name} (${newUser.email})`);
+    }
   };
 
-  const handleRevokeAccess = (siteId: string, userId: string) => {
-    let revokedName = "User";
-    setSites((prev) =>
-      prev.map((s) => {
-        if (s.id === siteId) {
-          const target = (s.authorizedUsers || []).find((u) => u.id === userId);
-          if (target) revokedName = target.name;
-          return {
-            ...s,
-            authorizedUsers: (s.authorizedUsers || []).filter((u) => u.id !== userId),
-          };
-        }
-        return s;
-      })
-    );
-    setHistory((prev) => [
-      {
-        id: "e-" + Date.now(),
-        title: "Access Revoked",
-        detail: `Revoked access for ${revokedName}.`,
-        timestamp: new Date().toLocaleTimeString(),
-        severity: "warning",
-      },
-      ...prev,
-    ]);
-    setSuccessMessage(`Revoked access for ${revokedName}`);
+  const handleRevokeAccess = async (siteId: string, userId: string) => {
+    if (isLive) {
+      setLoading(true);
+      try {
+        await api.revokeAccess(siteId, userId);
+        setSuccessMessage("Access revoked and updated in database.");
+        await fetchRemoteData();
+      } catch (err: any) {
+        setError(err.message || "Failed to revoke access in database.");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      let revokedName = "User";
+      setSites((prev) =>
+        prev.map((s) => {
+          if (s.id === siteId) {
+            const target = (s.authorizedUsers || []).find((u) => u.id === userId);
+            if (target) revokedName = target.name;
+            return {
+              ...s,
+              authorizedUsers: (s.authorizedUsers || []).filter((u) => u.id !== userId),
+            };
+          }
+          return s;
+        })
+      );
+      setHistory((prev) => [
+        {
+          id: "e-" + Date.now(),
+          title: "Access Revoked",
+          detail: `Revoked access for ${revokedName}.`,
+          timestamp: new Date().toLocaleTimeString(),
+          severity: "warning",
+        },
+        ...prev,
+      ]);
+      setSuccessMessage(`Revoked access for ${revokedName}`);
+    }
   };
 
   const handleCommand = (action: Movement) => {

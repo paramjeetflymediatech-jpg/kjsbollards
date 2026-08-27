@@ -3,7 +3,7 @@ import { expect } from "chai";
 import {
   type MqttPacket,
   getDeviceTelemetry
-} from "../src/mqtt.js";
+} from "../src/mqtt/index.js";
 
 describe("RC200 Series MQTT Connection Protocol Suite (PDF Spec Compliance)", () => {
   const TEST_SN = "RCA5B1A41C-DAD0B7E7";

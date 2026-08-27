@@ -7,14 +7,15 @@ import {
   BollardDiagnostics,
   CommissionPayload,
   IoConfigPayload,
-  BarrierConfigPayload
+  BarrierConfigPayload,
+  AuthorizedUser
 } from "../types";
 
 const DEFAULT_DEV_URL =
   Platform.OS === "android" ? "http://10.0.2.2:8080" : "http://localhost:8080";
 
 class ApiClient {
-  private baseUrl: string = DEFAULT_DEV_URL;
+  private baseUrl: string = "https://api.kjsbollards.co.uk";
   private token: string | null = null;
 
   public setBaseUrl(url: string) {
@@ -54,10 +55,53 @@ class ApiClient {
     return response.json();
   }
 
+  public async register(
+    name: string,
+    email: string,
+    pass: string,
+    siteName?: string
+  ): Promise<Session & { site?: Site }> {
+    return this.request<Session & { site?: Site }>("/v1/auth/register", {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        email,
+        password: pass,
+        siteName: siteName || "Primary Security Site",
+      }),
+    });
+  }
+
   public async login(email: string, pass: string): Promise<Session> {
     return this.request<Session>("/v1/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password: pass }),
+    });
+  }
+
+  public async createSite(name: string, address?: string): Promise<Site> {
+    return this.request<Site>("/v1/sites", {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        address: address || "Primary Residence / Facility",
+      }),
+    });
+  }
+
+  public async grantAccess(
+    siteId: string,
+    payload: { name: string; email: string; role: string; bollardIds: string[] }
+  ): Promise<AuthorizedUser> {
+    return this.request<AuthorizedUser>(`/v1/sites/${siteId}/access`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  public async revokeAccess(siteId: string, accessId: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/sites/${siteId}/access/${accessId}`, {
+      method: "DELETE",
     });
   }
 

@@ -7,7 +7,7 @@ import {
   type InferCreationAttributes,
   type NonAttribute
 } from "sequelize";
-import { sequelize } from "../db.js";
+import { sequelize } from "../database/connection.js";
 
 // ================= USER MODEL =================
 export class User extends Model<InferAttributes<User>, InferCreationAttributes<User>> {
@@ -15,7 +15,7 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
   declare email: string;
   declare name: string;
   declare passwordHash: string;
-  declare role: "admin" | "operator" | "viewer";
+  declare role: "owner" | "admin" | "operator" | "family" | "staff" | "viewer";
   declare enabled: CreationOptional<boolean>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
@@ -44,9 +44,9 @@ User.init(
       field: "password_hash"
     },
     role: {
-      type: DataTypes.ENUM("admin", "operator", "viewer"),
+      type: DataTypes.ENUM("owner", "admin", "operator", "family", "staff", "viewer"),
       allowNull: false,
-      defaultValue: "operator"
+      defaultValue: "owner"
     },
     enabled: {
       type: DataTypes.BOOLEAN,
@@ -71,6 +71,7 @@ User.init(
 // ================= SITE MODEL =================
 export class Site extends Model<InferAttributes<Site>, InferCreationAttributes<Site>> {
   declare id: CreationOptional<string>;
+  declare ownerId: ForeignKey<string> | null;
   declare name: string;
   declare address: string;
   declare enabled: CreationOptional<boolean>;
@@ -78,6 +79,8 @@ export class Site extends Model<InferAttributes<Site>, InferCreationAttributes<S
   declare updatedAt: CreationOptional<Date>;
 
   declare bollards?: NonAttribute<Bollard[]>;
+  declare authorizedUsers?: NonAttribute<SiteAccess[]>;
+  declare owner?: NonAttribute<User>;
 }
 
 Site.init(
@@ -86,6 +89,15 @@ Site.init(
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
+    },
+    ownerId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      field: "owner_id",
+      references: {
+        model: "users",
+        key: "id"
+      }
     },
     name: {
       type: DataTypes.STRING(255),
@@ -112,6 +124,86 @@ Site.init(
   {
     sequelize,
     tableName: "sites"
+  }
+);
+
+// ================= SITE ACCESS MODEL =================
+export class SiteAccess extends Model<InferAttributes<SiteAccess>, InferCreationAttributes<SiteAccess>> {
+  declare id: CreationOptional<string>;
+  declare siteId: ForeignKey<string>;
+  declare userId: ForeignKey<string> | null;
+  declare email: string;
+  declare name: string;
+  declare role: "admin" | "family" | "staff" | "viewer";
+  declare bollardIds: CreationOptional<string[] | null>;
+  declare enabled: CreationOptional<boolean>;
+  declare createdAt: CreationOptional<Date>;
+  declare updatedAt: CreationOptional<Date>;
+
+  declare site?: NonAttribute<Site>;
+  declare user?: NonAttribute<User>;
+}
+
+SiteAccess.init(
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    siteId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      field: "site_id",
+      references: {
+        model: "sites",
+        key: "id"
+      }
+    },
+    userId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      field: "user_id",
+      references: {
+        model: "users",
+        key: "id"
+      }
+    },
+    email: {
+      type: DataTypes.STRING(255),
+      allowNull: false
+    },
+    name: {
+      type: DataTypes.STRING(255),
+      allowNull: false
+    },
+    role: {
+      type: DataTypes.ENUM("admin", "family", "staff", "viewer"),
+      allowNull: false,
+      defaultValue: "viewer"
+    },
+    bollardIds: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      field: "bollard_ids"
+    },
+    enabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      field: "created_at"
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      field: "updated_at"
+    }
+  },
+  {
+    sequelize,
+    tableName: "site_access"
   }
 );
 
@@ -452,8 +544,17 @@ AuditEvent.init(
 );
 
 // ================= ASSOCIATIONS =================
+User.hasMany(Site, { foreignKey: "ownerId", as: "ownedSites" });
+Site.belongsTo(User, { foreignKey: "ownerId", as: "owner" });
+
 Site.hasMany(Bollard, { foreignKey: "siteId", as: "bollards", onDelete: "CASCADE" });
 Bollard.belongsTo(Site, { foreignKey: "siteId", as: "site" });
+
+Site.hasMany(SiteAccess, { foreignKey: "siteId", as: "authorizedUsers", onDelete: "CASCADE" });
+SiteAccess.belongsTo(Site, { foreignKey: "siteId", as: "site" });
+
+User.hasMany(SiteAccess, { foreignKey: "userId", as: "siteAccesses" });
+SiteAccess.belongsTo(User, { foreignKey: "userId", as: "user" });
 
 Bollard.hasMany(CommandRequest, { foreignKey: "bollardId", as: "commandRequests" });
 CommandRequest.belongsTo(Bollard, { foreignKey: "bollardId", as: "bollard" });

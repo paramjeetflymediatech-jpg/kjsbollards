@@ -1,7 +1,7 @@
 import "mocha";
 import { expect } from "chai";
 import { createHash } from "node:crypto";
-import { generateSignature } from "../src/gatelink.js";
+import { generateSignature } from "../src/gatelink/index.js";
 import { config } from "../src/config.js";
 
 describe("GateLink Open API Suite (PDF Spec Compliance)", () => {

@@ -5,21 +5,29 @@ const app = Fastify({ logger: true });
 const PORT = Number(process.env.PORT || 8080);
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "kjs-super-secure-dev-jwt-secret-key-32bytes!!");
 
+interface DevUser {
+  id: string;
+  email: string;
+  password: string;
+  name: string;
+  role: "owner" | "admin" | "operator" | "family" | "staff" | "viewer";
+}
+
 // Seeded local database
-const users = [
+const users: DevUser[] = [
   {
     id: "usr-1",
     email: "operator@kjsbollards.co.uk",
     password: "KjsSecure2026!",
     name: "Perimeter Security Officer",
-    role: "operator" as const,
+    role: "operator",
   },
   {
     id: "usr-2",
     email: "admin@kjsbollards.co.uk",
     password: "KjsSecure2026!",
     name: "Chief Security Officer",
-    role: "admin" as const,
+    role: "admin",
   },
 ];
 
@@ -178,23 +186,117 @@ app.post("/v1/auth/login", async (request, reply) => {
   };
 });
 
-app.get("/v1/sites", { preHandler: authenticate }, async () => {
-  return sites.map((s) => ({
-    id: s.id,
-    name: s.name,
-    address: s.address,
-    bollards: s.bollards.map((b) => ({
-      id: b.id,
-      name: b.name,
-      status: b.status,
-      online: b.online,
-      safetyOk: b.safetyOk,
-      signalStrength: b.signalStrength,
-      cycleCount: b.cycleCount,
-      lastSeen: b.lastSeen,
-      serial: b.deviceCode,
-    })),
-  }));
+app.post("/v1/auth/register", async (request, reply) => {
+  const { name, email, password, siteName } = (request.body || {}) as any;
+  if (!email || !password) {
+    return reply.code(400).send({ error: "Email and password are required." });
+  }
+  const newUser = {
+    id: "user-" + Date.now(),
+    email: String(email).toLowerCase(),
+    password: String(password),
+    name: name || "Primary Owner",
+    role: "owner" as const,
+  };
+  users.push(newUser);
+
+  const newSite = {
+    id: "site-" + Date.now(),
+    name: siteName || "Primary Security Site",
+    address: "Primary Residence / Facility",
+    ownerId: newUser.id,
+    bollards: [],
+    authorizedUsers: [],
+  };
+  sites.push(newSite as any);
+
+  const token = await new SignJWT({ id: newUser.id, email: newUser.email, role: newUser.role, name: newUser.name })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuer("kjs-bollards")
+    .setSubject(newUser.id)
+    .setExpirationTime("7d")
+    .sign(JWT_SECRET);
+
+  return {
+    accessToken: token,
+    user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role },
+    site: { id: newSite.id, name: newSite.name, address: newSite.address },
+  };
+});
+
+app.get("/v1/sites", { preHandler: authenticate }, async (request: any) => {
+  const actor = request.actor;
+  return sites
+    .filter((s: any) => !s.ownerId || s.ownerId === actor.id || actor.role === "admin" || (s.authorizedUsers || []).some((u: any) => u.email?.toLowerCase() === actor.email?.toLowerCase()))
+    .map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      address: s.address,
+      ownerId: s.ownerId,
+      bollards: (s.bollards || []).map((b: any) => ({
+        id: b.id,
+        name: b.name,
+        status: b.status,
+        online: b.online,
+        safetyOk: b.safetyOk,
+        signalStrength: b.signalStrength,
+        cycleCount: b.cycleCount,
+        lastSeen: b.lastSeen,
+        serial: b.deviceCode,
+      })),
+      authorizedUsers: (s.authorizedUsers || []).map((u: any) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        addedAt: u.addedAt || new Date().toISOString(),
+        bollardIds: u.bollardIds || [],
+      })),
+    }));
+});
+
+app.post("/v1/sites", { preHandler: authenticate }, async (request: any, reply) => {
+  const actor = request.actor;
+  const { name, address } = (request.body || {}) as any;
+  const newSite = {
+    id: "site-" + Date.now(),
+    name: name || "New Security Site",
+    address: address || "Primary Residence / Facility",
+    ownerId: actor.id,
+    bollards: [],
+    authorizedUsers: [],
+  };
+  sites.push(newSite as any);
+  return reply.code(201).send(newSite);
+});
+
+app.post("/v1/sites/:siteId/access", { preHandler: authenticate }, async (request: any, reply) => {
+  const { siteId } = request.params as { siteId: string };
+  const { name, email, role, bollardIds } = (request.body || {}) as any;
+  const site: any = sites.find((s) => s.id === siteId);
+  if (!site) return reply.code(404).send({ error: "Site not found" });
+
+  const newAccess = {
+    id: "acc-" + Date.now(),
+    name: name || "Authorized User",
+    email: String(email).toLowerCase(),
+    role: role || "viewer",
+    addedAt: new Date().toISOString(),
+    bollardIds: bollardIds || [],
+  };
+  site.authorizedUsers = site.authorizedUsers || [];
+  site.authorizedUsers.push(newAccess);
+
+  return reply.code(201).send(newAccess);
+});
+
+app.delete("/v1/sites/:siteId/access/:accessId", { preHandler: authenticate }, async (request: any, reply) => {
+  const { siteId, accessId } = request.params as { siteId: string; accessId: string };
+  const site: any = sites.find((s) => s.id === siteId);
+  if (!site) return reply.code(404).send({ error: "Site not found" });
+
+  site.authorizedUsers = (site.authorizedUsers || []).filter((u: any) => u.id !== accessId);
+  return { success: true };
 });
 
 // Live Diagnostics

@@ -112,6 +112,74 @@ describe("KJS Bollards REST API Suite (Endpoints & Diagnostics)", () => {
       return reply.code(201).send(newBollard);
     });
 
+    // Auth Register
+    app.post("/v1/auth/register", async (request, reply) => {
+      const { name, email, password, siteName } = (request.body || {}) as any;
+      if (!email || !password) return reply.code(400).send({ error: "Missing required fields" });
+      const token = await new SignJWT({ id: "usr-owner-1", email, role: "owner", name: name || "Primary Owner" })
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuer("kjs-bollards")
+        .setSubject("usr-owner-1")
+        .setExpirationTime("2h")
+        .sign(JWT_SECRET);
+      const newSite = {
+        id: "site-registered-1",
+        name: siteName || "Primary Security Site",
+        address: "Primary Residence / Facility",
+        ownerId: "usr-owner-1",
+        bollards: [],
+        authorizedUsers: []
+      };
+      sampleSites.push(newSite as any);
+      return {
+        accessToken: token,
+        user: { id: "usr-owner-1", name: name || "Primary Owner", email, role: "owner" },
+        site: newSite
+      };
+    });
+
+    // Create Site
+    app.post("/v1/sites", { preHandler: authenticate }, async (request, reply) => {
+      const body = (request.body || {}) as any;
+      const newSite = {
+        id: "site-" + Date.now(),
+        name: body.name || "New Site",
+        address: body.address || "Primary Address",
+        bollards: [],
+        authorizedUsers: []
+      };
+      sampleSites.push(newSite as any);
+      return reply.code(201).send(newSite);
+    });
+
+    // Grant Access
+    app.post("/v1/sites/:siteId/access", { preHandler: authenticate }, async (request, reply) => {
+      const { siteId } = request.params as { siteId: string };
+      const body = (request.body || {}) as any;
+      const site = sampleSites.find((s) => s.id === siteId);
+      if (!site) return reply.code(404).send({ error: "Site not found" });
+      const newAccess = {
+        id: "acc-" + Date.now(),
+        name: body.name,
+        email: body.email,
+        role: body.role || "viewer",
+        addedAt: new Date().toISOString(),
+        bollardIds: body.bollardIds || []
+      };
+      (site as any).authorizedUsers = (site as any).authorizedUsers || [];
+      (site as any).authorizedUsers.push(newAccess);
+      return reply.code(201).send(newAccess);
+    });
+
+    // Revoke Access
+    app.delete("/v1/sites/:siteId/access/:accessId", { preHandler: authenticate }, async (request, reply) => {
+      const { siteId, accessId } = request.params as { siteId: string; accessId: string };
+      const site = sampleSites.find((s) => s.id === siteId);
+      if (!site) return reply.code(404).send({ error: "Site not found" });
+      (site as any).authorizedUsers = ((site as any).authorizedUsers || []).filter((u: any) => u.id !== accessId);
+      return { success: true };
+    });
+
     // Reboot
     app.post("/v1/bollards/:id/reboot", { preHandler: authenticate }, async () => ({
       success: true,
@@ -245,5 +313,65 @@ describe("KJS Bollards REST API Suite (Endpoints & Diagnostics)", () => {
     expect(res.statusCode).to.equal(200);
     const body = JSON.parse(res.body);
     expect(body.success).to.be.true;
+  });
+
+  it("POST /v1/auth/register should register a new owner and create primary site", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/auth/register",
+      payload: {
+        name: "Lord Kensington",
+        email: "kensington@estate.co.uk",
+        password: "SuperSecretPassword123!",
+        siteName: "Kensington Private Estate"
+      }
+    });
+    expect(res.statusCode).to.equal(200);
+    const body = JSON.parse(res.body);
+    expect(body.accessToken).to.be.a("string");
+    expect(body.user.role).to.equal("owner");
+    expect(body.site.name).to.equal("Kensington Private Estate");
+  });
+
+  it("POST /v1/sites should create an additional site", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/sites",
+      headers: { authorization: `Bearer ${authToken}` },
+      payload: {
+        name: "North Outpost Facility",
+        address: "Surrey Hills Access Gate"
+      }
+    });
+    expect(res.statusCode).to.equal(201);
+    const site = JSON.parse(res.body);
+    expect(site.name).to.equal("North Outpost Facility");
+  });
+
+  it("POST /v1/sites/:siteId/access and DELETE should grant and revoke access", async () => {
+    const grantRes = await app.inject({
+      method: "POST",
+      url: "/v1/sites/site-1/access",
+      headers: { authorization: `Bearer ${authToken}` },
+      payload: {
+        name: "Alice Security",
+        email: "alice@security.com",
+        role: "family",
+        bollardIds: ["b1"]
+      }
+    });
+    expect(grantRes.statusCode).to.equal(201);
+    const access = JSON.parse(grantRes.body);
+    expect(access.email).to.equal("alice@security.com");
+    expect(access.role).to.equal("family");
+
+    const revokeRes = await app.inject({
+      method: "DELETE",
+      url: `/v1/sites/site-1/access/${access.id}`,
+      headers: { authorization: `Bearer ${authToken}` }
+    });
+    expect(revokeRes.statusCode).to.equal(200);
+    const revokeBody = JSON.parse(revokeRes.body);
+    expect(revokeBody.success).to.be.true;
   });
 });
