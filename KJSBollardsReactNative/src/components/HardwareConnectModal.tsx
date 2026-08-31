@@ -255,7 +255,7 @@ export const HardwareConnectModal: React.FC<Props> = ({
                     <View style={styles.bleControlRow}>
                       <TouchableOpacity
                         style={[styles.bleActionBtn, styles.bleRaiseBtn]}
-                        onPress={() => handleSendBleCommand("RAISE")}
+                        onPress={() => handleSendBleCommand("raise")}
                         disabled={bleOperating}
                       >
                         <Text style={[styles.bleActionText, { color: Colors.ElectricCyan }]}>▲ RAISE</Text>
@@ -263,7 +263,7 @@ export const HardwareConnectModal: React.FC<Props> = ({
 
                       <TouchableOpacity
                         style={[styles.bleActionBtn, styles.bleLowerBtn]}
-                        onPress={() => handleSendBleCommand("LOWER")}
+                        onPress={() => handleSendBleCommand("lower")}
                         disabled={bleOperating}
                       >
                         <Text style={[styles.bleActionText, { color: Colors.CyberAmber }]}>▼ LOWER</Text>
@@ -271,7 +271,7 @@ export const HardwareConnectModal: React.FC<Props> = ({
 
                       <TouchableOpacity
                         style={[styles.bleActionBtn, styles.bleStopBtn]}
-                        onPress={() => handleSendBleCommand("STOP")}
+                        onPress={() => handleSendBleCommand("stop")}
                         disabled={bleOperating}
                       >
                         <Text style={[styles.bleActionText, { color: Colors.CrimsonRed }]}>■ STOP</Text>
@@ -375,30 +375,36 @@ export const HardwareConnectModal: React.FC<Props> = ({
                   STEP 2: TARGET WI-FI NETWORK (2.4 GHz)
                 </Text>
 
-                <Text style={styles.inputLabel}>AVAILABLE WI-FI NETWORKS</Text>
-                <View style={styles.networksList}>
-                  {wifiNetworks.map((net) => {
-                    const isSelected = selectedSsid === net.ssid;
-                    return (
-                      <TouchableOpacity
-                        key={net.ssid}
-                        style={[styles.networkRow, isSelected && styles.networkRowActive]}
-                        onPress={() => {
-                          setSelectedSsid(net.ssid);
-                          setCustomSsid("");
-                        }}
-                      >
-                        <Text style={[styles.networkSsid, isSelected && styles.networkSsidActive]}>
-                          📶 {net.ssid}
-                        </Text>
-                        <Text style={styles.networkSecurity}>{net.isSecured ? "🔒 WPA2/3" : "Open"}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                {wifiNetworks.length > 0 && (
+                  <>
+                    <Text style={styles.inputLabel}>AVAILABLE WI-FI NETWORKS</Text>
+                    <View style={styles.networksList}>
+                      {wifiNetworks.map((net) => {
+                        const isSelected = selectedSsid === net.ssid;
+                        return (
+                          <TouchableOpacity
+                            key={net.ssid}
+                            style={[styles.networkRow, isSelected && styles.networkRowActive]}
+                            onPress={() => {
+                              setSelectedSsid(net.ssid);
+                              setCustomSsid("");
+                            }}
+                          >
+                            <Text style={[styles.networkSsid, isSelected && styles.networkSsidActive]}>
+                              📶 {net.ssid}
+                            </Text>
+                            <Text style={styles.networkSecurity}>{net.isSecured ? "🔒 WPA2/3" : "Open"}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </>
+                )}
 
                 {/* Custom SSID Input */}
-                <Text style={styles.inputLabel}>OR ENTER MANUAL SSID</Text>
+                <Text style={styles.inputLabel}>
+                  {wifiNetworks.length > 0 ? "OR ENTER MANUAL SSID" : "TARGET FACILITY WI-FI SSID"}
+                </Text>
                 <TextInput
                   style={styles.input}
                   placeholder="e.g. MyHome-2.4G-WLAN"

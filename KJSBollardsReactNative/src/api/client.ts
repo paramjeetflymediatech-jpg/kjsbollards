@@ -17,7 +17,7 @@ const STORAGE_KEY_DEVICE_ID = "@kjs_device_unique_id";
 const DEFAULT_PROD_URL = Platform.OS === "android" ? "http://10.0.2.2:3000" : "http://localhost:3000";
 
 class ApiClient {
-  private baseUrl: string = DEFAULT_PROD_URL;
+  private baseUrl: string = "https://api.kjsbollards.co.uk";
   private token: string | null = null;
   private refreshToken: string | null = null;
   private isRefreshing: boolean = false;
