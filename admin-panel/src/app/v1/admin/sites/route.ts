@@ -53,5 +53,7 @@ export async function POST(req: NextRequest) {
     createdAt: new Date().toISOString(),
   });
 
+  await db.save();
+
   return NextResponse.json(newSite, { status: 201 });
 }

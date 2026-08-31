@@ -54,6 +54,8 @@ export async function PUT(req: NextRequest) {
 
   user.updatedAt = new Date().toISOString();
 
+  await db.save();
+
   return NextResponse.json({
     success: true,
     message: "Profile updated successfully",

@@ -35,6 +35,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     createdAt: new Date().toISOString(),
   });
 
+  await db.save();
+
   return NextResponse.json({
     id: user.id,
     name: user.name,

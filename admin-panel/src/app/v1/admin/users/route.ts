@@ -92,6 +92,8 @@ export async function POST(req: NextRequest) {
       createdAt: new Date().toISOString(),
     });
 
+    await db.save();
+
     return NextResponse.json({
       id: newUser.id,
       name: newUser.name,
