@@ -1,6 +1,17 @@
 import fs from "fs";
 import path from "path";
 import { hashPassword } from "./auth";
+import {
+  sequelize,
+  UserModel,
+  SiteModel,
+  BollardModel,
+  GateLinkDeviceModel,
+  MqttTelemetryModel,
+  AuditLogModel,
+  CommandRequestModel,
+  UserDeviceModel,
+} from "./sequelize";
 
 export interface DBUser {
   id: string;
@@ -115,6 +126,7 @@ class PersistentDatabase {
   commands: DBCommandRequest[] = [];
   userDevices: DBUserDevice[] = [];
   private initialized = false;
+  private isMySqlConnected = false;
 
   constructor() {
     this.bollards = [];
@@ -122,6 +134,7 @@ class PersistentDatabase {
 
   async save(): Promise<void> {
     try {
+      // 1. Save local backup JSON on disk
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
@@ -136,15 +149,130 @@ class PersistentDatabase {
         userDevices: this.userDevices,
       };
       await fs.promises.writeFile(DB_FILE_PATH, JSON.stringify(data, null, 2), "utf-8");
+
+      // 2. Persist to MySQL database if connected
+      if (this.isMySqlConnected) {
+        if (this.users.length > 0) {
+          await UserModel.bulkCreate(this.users, {
+            updateOnDuplicate: ["name", "email", "passwordHash", "role", "enabled", "updatedAt"],
+          }).catch((e) => console.error("[DB-MySQL] User sync error:", e.message));
+        }
+        if (this.sites.length > 0) {
+          await SiteModel.bulkCreate(this.sites, {
+            updateOnDuplicate: ["name", "address", "ownerId", "enabled"],
+          }).catch((e) => console.error("[DB-MySQL] Site sync error:", e.message));
+        }
+        if (this.bollards.length > 0) {
+          await BollardModel.bulkCreate(this.bollards, {
+            updateOnDuplicate: [
+              "name",
+              "deviceCode",
+              "status",
+              "enabled",
+              "siteId",
+              "openDuration",
+              "reboundSensitivity",
+              "cycleCount",
+              "pulseDuration",
+              "in1Type",
+              "in2Type",
+              "speed",
+              "autoCloseDelay",
+            ],
+          }).catch((e) => console.error("[DB-MySQL] Bollard sync error:", e.message));
+        }
+        if (this.gatelinkCloudDevices.length > 0) {
+          await GateLinkDeviceModel.bulkCreate(this.gatelinkCloudDevices, {
+            updateOnDuplicate: ["deviceName", "online"],
+          }).catch((e) => console.error("[DB-MySQL] GateLink device sync error:", e.message));
+        }
+        if (this.mqttTelemetry.length > 0) {
+          await MqttTelemetryModel.bulkCreate(this.mqttTelemetry, {
+            updateOnDuplicate: [
+              "online",
+              "lastSeen",
+              "hardwareVersion",
+              "softwareVersion",
+              "signalStrength",
+              "inputs",
+              "outputs",
+              "cycleCount",
+            ],
+          }).catch((e) => console.error("[DB-MySQL] Telemetry sync error:", e.message));
+        }
+        if (this.auditLogs.length > 0) {
+          await AuditLogModel.bulkCreate(this.auditLogs, {
+            ignoreDuplicates: true,
+          }).catch((e) => console.error("[DB-MySQL] AuditLog sync error:", e.message));
+        }
+        if (this.commands.length > 0) {
+          await CommandRequestModel.bulkCreate(this.commands, {
+            updateOnDuplicate: ["bollardId", "userId", "action", "status"],
+          }).catch((e) => console.error("[DB-MySQL] Command sync error:", e.message));
+        }
+        if (this.userDevices.length > 0) {
+          await UserDeviceModel.bulkCreate(this.userDevices, {
+            updateOnDuplicate: [
+              "userId",
+              "deviceId",
+              "platform",
+              "model",
+              "osVersion",
+              "appVersion",
+              "pushToken",
+              "lastSeen",
+              "ipAddress",
+            ],
+          }).catch((e) => console.error("[DB-MySQL] UserDevice sync error:", e.message));
+        }
+      }
     } catch (err) {
-      console.error("[DB] Failed to save database to disk:", err);
+      console.error("[DB] Failed to save database:", err);
     }
   }
 
   async init(): Promise<void> {
     if (this.initialized) return;
 
-    // Check if database file exists on disk
+    // 1. Try connecting to MySQL via Sequelize
+    try {
+      await sequelize.authenticate();
+      this.isMySqlConnected = true;
+      console.log("[DB] MySQL connection established successfully.");
+
+      // Synchronize MySQL tables
+      await sequelize.sync({ alter: true });
+
+      // Check if MySQL has existing records
+      const dbUsersCount = await UserModel.count();
+      if (dbUsersCount > 0) {
+        const users = await UserModel.findAll();
+        const sites = await SiteModel.findAll();
+        const bollards = await BollardModel.findAll();
+        const devices = await GateLinkDeviceModel.findAll();
+        const telemetry = await MqttTelemetryModel.findAll();
+        const logs = await AuditLogModel.findAll({ order: [["createdAt", "DESC"]], limit: 100 });
+        const commands = await CommandRequestModel.findAll({ limit: 100 });
+        const userDevices = await UserDeviceModel.findAll();
+
+        this.users = users.map((u) => u.get({ plain: true }));
+        this.sites = sites.map((s) => s.get({ plain: true }));
+        this.bollards = bollards.map((b) => b.get({ plain: true }));
+        this.gatelinkCloudDevices = devices.map((d) => d.get({ plain: true }));
+        this.mqttTelemetry = telemetry.map((t) => t.get({ plain: true }));
+        this.auditLogs = logs.map((l) => l.get({ plain: true }));
+        this.commands = commands.map((c) => c.get({ plain: true }));
+        this.userDevices = userDevices.map((d) => d.get({ plain: true }));
+
+        this.initialized = true;
+        return;
+      }
+    } catch (sqlErr: any) {
+      this.isMySqlConnected = false;
+      console.warn("[DB] MySQL not available (" + sqlErr.message + "). Falling back to local db.json storage.");
+    }
+
+    // 2. Check if local database file exists on disk
     if (fs.existsSync(DB_FILE_PATH)) {
       try {
         const raw = await fs.promises.readFile(DB_FILE_PATH, "utf-8");
@@ -158,13 +286,18 @@ class PersistentDatabase {
         this.commands = parsed.commands || [];
         this.userDevices = parsed.userDevices || [];
         this.initialized = true;
+
+        // If MySQL became available, push existing local data into MySQL
+        if (this.isMySqlConnected) {
+          await this.save();
+        }
         return;
       } catch (err) {
         console.error("[DB] Could not parse existing db.json, creating clean seed:", err);
       }
     }
 
-    // Otherwise, generate initial seed only once
+    // 3. Otherwise, generate initial seed only once
     const adminHash = await hashPassword("KjsSecure2026!");
     const operatorHash = await hashPassword("KjsSecure2026!");
 
@@ -249,17 +382,17 @@ class PersistentDatabase {
     this.gatelinkCloudDevices = [
       {
         deviceCode: "RC200-A5B1-01",
-        deviceName: "Main Entrance Controller",
+        deviceName: "Mayfair Gate 1 (RC200)",
         online: true,
       },
       {
         deviceCode: "RC200-A5B1-02",
-        deviceName: "Secondary Gate Controller",
+        deviceName: "Mayfair Gate 2 (RC200)",
         online: true,
       },
       {
         deviceCode: "RC200-B2C3-01",
-        deviceName: "North Perimeter 4G",
+        deviceName: "Logistics Access Control (RC200)",
         online: true,
       },
     ];
@@ -269,10 +402,10 @@ class PersistentDatabase {
         sn: "RC200-A5B1-01",
         online: true,
         lastSeen: new Date().toISOString(),
-        hardwareVersion: "1.11",
-        softwareVersion: "1.01",
-        signalStrength: 72,
-        inputs: [true, false, false],
+        hardwareVersion: "1.10",
+        softwareVersion: "1.02",
+        signalStrength: 78,
+        inputs: [true, true, false],
         outputs: [true, false, false, false],
         cycleCount: 1420,
       },
@@ -318,6 +451,20 @@ class PersistentDatabase {
 
   async reset(): Promise<void> {
     this.initialized = false;
+    if (this.isMySqlConnected) {
+      try {
+        await UserModel.destroy({ where: {}, truncate: true });
+        await SiteModel.destroy({ where: {}, truncate: true });
+        await BollardModel.destroy({ where: {}, truncate: true });
+        await GateLinkDeviceModel.destroy({ where: {}, truncate: true });
+        await MqttTelemetryModel.destroy({ where: {}, truncate: true });
+        await AuditLogModel.destroy({ where: {}, truncate: true });
+        await CommandRequestModel.destroy({ where: {}, truncate: true });
+        await UserDeviceModel.destroy({ where: {}, truncate: true });
+      } catch (err: any) {
+        console.error("[DB-MySQL] Reset error:", err.message);
+      }
+    }
     if (fs.existsSync(DB_FILE_PATH)) {
       try {
         await fs.promises.unlink(DB_FILE_PATH);
