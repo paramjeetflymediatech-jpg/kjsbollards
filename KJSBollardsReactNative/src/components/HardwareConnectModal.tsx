@@ -277,6 +277,25 @@ export const HardwareConnectModal: React.FC<Props> = ({
                         <Text style={[styles.bleActionText, { color: Colors.CrimsonRed }]}>■ STOP</Text>
                       </TouchableOpacity>
                     </View>
+
+                    {/* Quick Wi-Fi Setup Button */}
+                    <TouchableOpacity
+                      style={styles.bleWifiSetupBtn}
+                      onPress={() => {
+                        setActiveTab("wifi");
+                        if (connectedBle) {
+                          setBollardName(connectedBle.name);
+                        }
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.bleWifiSetupIcon}>📶</Text>
+                      <View style={styles.bleWifiSetupTextCol}>
+                        <Text style={styles.bleWifiSetupTitle}>Connect {connectedBle.name} to Wi-Fi</Text>
+                        <Text style={styles.bleWifiSetupSubtitle}>Enable remote internet control from anywhere</Text>
+                      </View>
+                      <Text style={styles.bleWifiSetupArrow}>➔</Text>
+                    </TouchableOpacity>
                   </View>
                 ) : (
                   <View style={styles.scanningBanner}>
@@ -923,5 +942,38 @@ const styles = StyleSheet.create({
     fontSize: responsiveFont(13),
     fontWeight: "800",
     letterSpacing: 1,
+  },
+  bleWifiSetupBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 229, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 229, 255, 0.3)",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 14,
+  },
+  bleWifiSetupIcon: {
+    fontSize: responsiveFont(20),
+    marginRight: 10,
+  },
+  bleWifiSetupTextCol: {
+    flex: 1,
+  },
+  bleWifiSetupTitle: {
+    color: Colors.ElectricCyan,
+    fontSize: responsiveFont(13),
+    fontWeight: "700",
+  },
+  bleWifiSetupSubtitle: {
+    color: Colors.TextMuted,
+    fontSize: responsiveFont(10.5),
+    marginTop: 2,
+  },
+  bleWifiSetupArrow: {
+    color: Colors.ElectricCyan,
+    fontSize: responsiveFont(16),
+    fontWeight: "bold",
+    marginLeft: 8,
   },
 });

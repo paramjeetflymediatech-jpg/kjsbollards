@@ -75,6 +75,19 @@ export async function POST(req: NextRequest) {
 
   db.bollards.unshift(newBollard);
 
+  // Automatically sync to GateLink Cloud Devices list
+  const existingCloud = db.gatelinkCloudDevices.find((d) => d.deviceCode === cleanCode);
+  if (!existingCloud) {
+    db.gatelinkCloudDevices.push({
+      deviceCode: cleanCode,
+      deviceName: newBollard.name,
+      online: true,
+    });
+  } else {
+    existingCloud.deviceName = newBollard.name;
+    existingCloud.online = true;
+  }
+
   db.auditLogs.unshift({
     id: `aud-${Date.now()}`,
     userId: actor.id,

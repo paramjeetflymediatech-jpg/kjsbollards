@@ -20,13 +20,19 @@ export type BleConnectionState = "disconnected" | "scanning" | "connecting" | "c
 
 type BleListener = (devices: BleDevice[], state: BleConnectionState) => void;
 
-// Standard Nordic UART Service (NUS) & GateLink Custom UUIDs
-const NORDIC_UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-const NORDIC_UART_TX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // Characteristic for write
-const NORDIC_UART_RX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // Characteristic for notifications
-
-const GATELINK_SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb";
-const GATELINK_WRITE_UUID = "0000fff1-0000-1000-8000-00805f9b34fb";
+// Known GATT Service / Characteristic UUIDs for Bollard & Gate Controllers
+const KNOWN_WRITE_TARGETS = [
+  // Nordic UART Service (NUS)
+  { service: "6e400001-b5a3-f393-e0a9-e50e24dcca9e", char: "6e400002-b5a3-f393-e0a9-e50e24dcca9e" },
+  // HM-10 / CC2541 Serial Module
+  { service: "0000ffe0-0000-1000-8000-00805f9b34fb", char: "0000ffe1-0000-1000-8000-00805f9b34fb" },
+  { service: "ffe0", char: "ffe1" },
+  // GateLink / RC200 Custom Service
+  { service: "0000fff0-0000-1000-8000-00805f9b34fb", char: "0000fff1-0000-1000-8000-00805f9b34fb" },
+  { service: "fff0", char: "fff1" },
+  // Telit / Microchip / ESP32 custom UART services
+  { service: "0000fe59-0000-1000-8000-00805f9b34fb", char: "00008ecb-0000-1000-8000-00805f9b34fb" },
+];
 
 // Base64 helper without external dependencies
 function stringToBase64(input: string): string {
@@ -60,6 +66,7 @@ class BluetoothService {
   private discoveredDevices: Map<string, BleDevice> = new Map();
   private connectedDevice: BleDevice | null = null;
   private activeNativeDevice: Device | null = null;
+  private cachedWriteTarget: { serviceUuid: string; charUuid: string; withoutResponse: boolean } | null = null;
   private listeners: Set<BleListener> = new Set();
 
   constructor() {
@@ -223,10 +230,69 @@ class BluetoothService {
     }
   }
 
+
+  // Find or auto-detect the writable GATT service & characteristic on physical controller
+  private async resolveWriteTarget(device: Device): Promise<{ serviceUuid: string; charUuid: string; withoutResponse: boolean }> {
+    if (this.cachedWriteTarget) {
+      return this.cachedWriteTarget;
+    }
+
+    const services = await device.services();
+    console.log(`[BLE] Discovered ${services.length} services on ${device.id}`);
+
+    // Pass 1: Check known standard UART service & characteristic profiles
+    for (const s of services) {
+      const sUuid = s.uuid.toLowerCase();
+      try {
+        const chars = await device.characteristicsForService(s.uuid);
+        for (const c of chars) {
+          const cUuid = c.uuid.toLowerCase();
+          for (const known of KNOWN_WRITE_TARGETS) {
+            if (sUuid.includes(known.service.toLowerCase()) && cUuid.includes(known.char.toLowerCase())) {
+              const withoutResponse = !c.isWritableWithResponse && c.isWritableWithoutResponse;
+              this.cachedWriteTarget = { serviceUuid: s.uuid, charUuid: c.uuid, withoutResponse };
+              console.log(`[BLE] Matched known target: Service ${s.uuid}, Char ${c.uuid} (withoutResponse=${withoutResponse})`);
+              return this.cachedWriteTarget;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`[BLE] Error reading chars for service ${s.uuid}:`, err);
+      }
+    }
+
+    // Pass 2: Auto-detect any writable characteristic on any custom/vendor service
+    for (const s of services) {
+      const sUuid = s.uuid.toLowerCase();
+      // Skip standard Bluetooth SIG system services (Generic Access, Generic Attribute, Device Information)
+      if (sUuid.includes("1800") || sUuid.includes("1801") || sUuid.includes("180a")) {
+        continue;
+      }
+      try {
+        const chars = await device.characteristicsForService(s.uuid);
+        for (const c of chars) {
+          if (c.isWritableWithResponse || c.isWritableWithoutResponse) {
+            const withoutResponse = !c.isWritableWithResponse;
+            this.cachedWriteTarget = { serviceUuid: s.uuid, charUuid: c.uuid, withoutResponse };
+            console.log(`[BLE] Auto-discovered writable characteristic: Service ${s.uuid}, Char ${c.uuid} (withoutResponse=${withoutResponse})`);
+            return this.cachedWriteTarget;
+          }
+        }
+      } catch (err) {
+        console.warn(`[BLE] Error inspecting characteristics for service ${s.uuid}:`, err);
+      }
+    }
+
+    throw new Error(
+      `No writable BLE GATT service found on device. Discovered services: [${services.map((s) => s.uuid).join(", ")}]`
+    );
+  }
+
   // Connect to a real physical BLE peripheral
   public async connectToDevice(deviceId: string): Promise<BleDevice> {
     this.stopScanning();
     this.state = "connecting";
+    this.cachedWriteTarget = null;
     this.notify();
 
     if (!this.bleManager) {
@@ -239,6 +305,13 @@ class BluetoothService {
       const nativeDev = await this.bleManager.connectToDevice(deviceId, { autoConnect: false });
       await nativeDev.discoverAllServicesAndCharacteristics();
       this.activeNativeDevice = nativeDev;
+
+      // Pre-warm / resolve writable characteristic
+      try {
+        await this.resolveWriteTarget(nativeDev);
+      } catch (targetErr: any) {
+        console.warn("[BLE] Writable target resolution note:", targetErr.message);
+      }
 
       let target = this.discoveredDevices.get(deviceId);
       if (!target) {
@@ -271,6 +344,7 @@ class BluetoothService {
 
   // Disconnect active physical BLE peripheral
   public async disconnect() {
+    this.cachedWriteTarget = null;
     if (this.activeNativeDevice && this.bleManager) {
       try {
         await this.activeNativeDevice.cancelConnection();
@@ -285,7 +359,7 @@ class BluetoothService {
     this.notify();
   }
 
-  // Send direct offline command over real BLE (Option B: JSON Payload {"cmd": "raise"})
+  // Send direct offline command over real BLE
   public async sendBleCommand(action: Movement): Promise<{ success: boolean; latencyMs: number }> {
     if (!this.connectedDevice || !this.activeNativeDevice || this.state !== "connected") {
       throw new Error("No physical RC200 controller is connected. Please pair via Bluetooth first.");
@@ -296,25 +370,32 @@ class BluetoothService {
     const payloadBase64 = stringToBase64(payloadJson);
 
     try {
-      const services = await this.activeNativeDevice.services();
-      let writeServiceUuid = GATELINK_SERVICE_UUID;
-      let writeCharUuid = GATELINK_WRITE_UUID;
+      const target = await this.resolveWriteTarget(this.activeNativeDevice);
 
-      // Detect available GATT service on physical RC200
-      for (const s of services) {
-        const uuid = s.uuid.toLowerCase();
-        if (uuid.includes("6e400001")) {
-          writeServiceUuid = NORDIC_UART_SERVICE_UUID;
-          writeCharUuid = NORDIC_UART_TX_UUID;
-          break;
+      if (target.withoutResponse) {
+        await this.activeNativeDevice.writeCharacteristicWithoutResponseForService(
+          target.serviceUuid,
+          target.charUuid,
+          payloadBase64
+        );
+      } else {
+        try {
+          await this.activeNativeDevice.writeCharacteristicWithResponseForService(
+            target.serviceUuid,
+            target.charUuid,
+            payloadBase64
+          );
+        } catch (respErr) {
+          // If write with response failed or was rejected by characteristic, fallback to write without response
+          console.warn("[BLE] writeWithResponse failed, retrying without response:", respErr);
+          await this.activeNativeDevice.writeCharacteristicWithoutResponseForService(
+            target.serviceUuid,
+            target.charUuid,
+            payloadBase64
+          );
+          target.withoutResponse = true;
         }
       }
-
-      await this.activeNativeDevice.writeCharacteristicWithResponseForService(
-        writeServiceUuid,
-        writeCharUuid,
-        payloadBase64
-      );
 
       if (action === "raise") this.connectedDevice.status = "RAISED";
       if (action === "lower") this.connectedDevice.status = "LOWERED";
@@ -325,6 +406,50 @@ class BluetoothService {
       return { success: true, latencyMs };
     } catch (err: any) {
       throw new Error(`Failed to transmit [${action.toUpperCase()}] to RC200: ${err.message}`);
+    }
+  }
+
+  // Send Wi-Fi credentials to controller directly over BLE
+  public async sendBleWifiConfig(ssid: string, pass: string): Promise<{ success: boolean; message: string }> {
+    if (!this.connectedDevice || !this.activeNativeDevice || this.state !== "connected") {
+      throw new Error("No physical RC200 controller is connected via Bluetooth. Please pair first.");
+    }
+
+    const payloadJson = JSON.stringify({ cmd: "set_wifi", ssid, pass });
+    const payloadBase64 = stringToBase64(payloadJson);
+
+    try {
+      const target = await this.resolveWriteTarget(this.activeNativeDevice);
+
+      if (target.withoutResponse) {
+        await this.activeNativeDevice.writeCharacteristicWithoutResponseForService(
+          target.serviceUuid,
+          target.charUuid,
+          payloadBase64
+        );
+      } else {
+        try {
+          await this.activeNativeDevice.writeCharacteristicWithResponseForService(
+            target.serviceUuid,
+            target.charUuid,
+            payloadBase64
+          );
+        } catch (respErr) {
+          await this.activeNativeDevice.writeCharacteristicWithoutResponseForService(
+            target.serviceUuid,
+            target.charUuid,
+            payloadBase64
+          );
+          target.withoutResponse = true;
+        }
+      }
+
+      return {
+        success: true,
+        message: `Wi-Fi credentials for "${ssid}" transmitted to ${this.connectedDevice.name} over Bluetooth.`,
+      };
+    } catch (err: any) {
+      throw new Error(`Failed to transmit Wi-Fi config over Bluetooth: ${err.message}`);
     }
   }
 }
