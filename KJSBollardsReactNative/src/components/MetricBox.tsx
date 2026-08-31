@@ -12,14 +12,14 @@ interface MetricBoxProps {
 
 export const MetricBox: React.FC<MetricBoxProps> = ({ title, value, color, subtitle }) => {
   return (
-    <View style={[styles.card, { borderColor: `${color}40` }]}>
+    <View style={[styles.card, { borderColor: `${color}35` }]}>
       <View style={styles.header}>
         <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit>
           {title}
         </Text>
         <View style={[styles.dot, { backgroundColor: color }]} />
       </View>
-      <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit>
+      <Text style={[styles.value, { color: Colors.TextWhite }]} numberOfLines={1} adjustsFontSizeToFit>
         {value}
       </Text>
       {subtitle ? (
@@ -34,11 +34,12 @@ export const MetricBox: React.FC<MetricBoxProps> = ({ title, value, color, subti
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    backgroundColor: Colors.SurfaceDark,
+    backgroundColor: Colors.SurfaceCard,
     borderRadius: 14,
-    padding: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderWidth: 1,
-    minHeight: 68,
+    minHeight: 74,
     justifyContent: "center",
   },
   header: {
@@ -49,9 +50,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: responsiveFont(10),
-    fontWeight: "700",
+    fontWeight: "800",
     color: Colors.TextMuted,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     flex: 1,
   },
   dot: {
@@ -61,13 +62,14 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   value: {
-    fontSize: responsiveFont(13),
+    fontSize: responsiveFont(14),
     fontWeight: "900",
-    color: Colors.TextWhite,
+    letterSpacing: 0.3,
   },
   subtitle: {
     fontSize: responsiveFont(9),
     color: Colors.TextSubtle,
     marginTop: 2,
+    fontWeight: "600",
   },
 });

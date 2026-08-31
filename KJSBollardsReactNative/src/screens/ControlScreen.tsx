@@ -5,6 +5,8 @@ import { Colors } from "../theme/colors";
 import { responsiveFont } from "../theme/responsive";
 import { HydraulicBollard } from "../components/HydraulicBollard";
 import { HardwareConfigModal } from "../components/HardwareConfigModal";
+import { HardwareConnectModal } from "../components/HardwareConnectModal";
+import { bluetoothService, BleDevice } from "../services/bluetooth";
 import { api } from "../api/client";
 
 interface ControlScreenProps {
@@ -27,8 +29,17 @@ export const ControlScreen: React.FC<ControlScreenProps> = ({
   successMessage,
 }) => {
   const [configModalVisible, setConfigModalVisible] = useState(false);
+  const [connectModalVisible, setConnectModalVisible] = useState(false);
+  const [bleDevice, setBleDevice] = useState<BleDevice | null>(null);
   const [diagnostics, setDiagnostics] = useState<BollardDiagnostics | null>(null);
   const [loadingDiag, setLoadingDiag] = useState(false);
+
+  useEffect(() => {
+    const unsub = bluetoothService.subscribe(() => {
+      setBleDevice(bluetoothService.getConnectedDevice());
+    });
+    return unsub;
+  }, []);
 
   const fetchDiagnostics = useCallback(async () => {
     try {
@@ -78,6 +89,43 @@ export const ControlScreen: React.FC<ControlScreenProps> = ({
           style={styles.configBtn}
         >
           <Text style={styles.configIcon}>⚙️</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Sleek Hardware Connectivity Segment */}
+      <View style={styles.connPillContainer}>
+        {/* Bluetooth Segment */}
+        <TouchableOpacity
+          style={[
+            styles.connPillBtn,
+            bleDevice ? styles.connPillBleActive : styles.connPillInactive,
+          ]}
+          onPress={() => setConnectModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.pillDot, { backgroundColor: bleDevice ? Colors.NeonEmerald : "#64748b" }]} />
+          <Text style={styles.pillIcon}>📡</Text>
+          <Text style={[styles.pillText, bleDevice ? styles.pillTextBleActive : null]} numberOfLines={1}>
+            {bleDevice ? `BLE Linked (~${bleDevice.distanceMeters}m)` : "BLE Offline"}
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.pillDivider} />
+
+        {/* Wi-Fi Segment */}
+        <TouchableOpacity
+          style={[
+            styles.connPillBtn,
+            signal > 0 ? styles.connPillWifiActive : styles.connPillInactive,
+          ]}
+          onPress={() => setConnectModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.pillDot, { backgroundColor: signal > 0 ? Colors.ElectricCyan : Colors.CyberAmber }]} />
+          <Text style={styles.pillIcon}>📶</Text>
+          <Text style={[styles.pillText, signal > 0 ? styles.pillTextWifiActive : null]} numberOfLines={1}>
+            {signal > 0 ? `Wi-Fi Online` : "Setup Wi-Fi"}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -187,47 +235,55 @@ export const ControlScreen: React.FC<ControlScreenProps> = ({
           <TouchableOpacity
             style={[
               styles.actionBtn,
-              styles.raiseBtn,
+              styles.raiseCardBtn,
               (!bollard.online || !bollard.safetyOk || isMoving) && styles.disabledBtn,
             ]}
             onPress={() => onCommand("raise")}
             disabled={!bollard.online || !bollard.safetyOk || isMoving}
             activeOpacity={0.8}
           >
-            <Text style={styles.actionIcon}>▲</Text>
-            <Text style={styles.actionText} numberOfLines={1} adjustsFontSizeToFit>
-              RAISE BOLLARD
-            </Text>
+            <View style={styles.raiseIconCircle}>
+              <Text style={styles.raiseIconArrow}>▲</Text>
+            </View>
+            <Text style={styles.actionBtnTitle}>RAISE</Text>
+            <Text style={styles.actionBtnSubtitle}>Extend Barrier</Text>
           </TouchableOpacity>
 
           {/* LOWER Button */}
           <TouchableOpacity
             style={[
               styles.actionBtn,
-              styles.lowerBtn,
+              styles.lowerCardBtn,
               (!bollard.online || !bollard.safetyOk || isMoving) && styles.disabledBtn,
             ]}
             onPress={() => onCommand("lower")}
             disabled={!bollard.online || !bollard.safetyOk || isMoving}
             activeOpacity={0.8}
           >
-            <Text style={styles.actionIcon}>▼</Text>
-            <Text style={styles.actionText} numberOfLines={1} adjustsFontSizeToFit>
-              LOWER BOLLARD
-            </Text>
+            <View style={styles.lowerIconCircle}>
+              <Text style={styles.lowerIconArrow}>▼</Text>
+            </View>
+            <Text style={styles.actionBtnTitle}>LOWER</Text>
+            <Text style={styles.actionBtnSubtitle}>Retract Barrier</Text>
           </TouchableOpacity>
         </View>
 
         {/* EMERGENCY STOP BUTTON */}
         <TouchableOpacity
-          style={styles.stopBtn}
+          style={styles.stopCardBtn}
           onPress={() => onCommand("stop")}
           activeOpacity={0.85}
         >
-          <Text style={styles.stopIcon}>⛔</Text>
-          <Text style={styles.stopText} numberOfLines={1} adjustsFontSizeToFit>
-            EMERGENCY STOP (PULSE RELAY)
-          </Text>
+          <View style={styles.stopIconCircle}>
+            <Text style={styles.stopIconText}>🛑</Text>
+          </View>
+          <View style={styles.stopTextCol}>
+            <Text style={styles.stopMainTitle}>EMERGENCY STOP</Text>
+            <Text style={styles.stopSubTitle}>Instant Hydraulic Safety Halt</Text>
+          </View>
+          <View style={styles.stopPulseBadge}>
+            <Text style={styles.stopPulseText}>HALT</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -237,6 +293,15 @@ export const ControlScreen: React.FC<ControlScreenProps> = ({
         bollard={bollard}
         onClose={() => {
           setConfigModalVisible(false);
+          fetchDiagnostics();
+        }}
+      />
+
+      {/* Hardware Connectivity (BLE & Wi-Fi) Modal */}
+      <HardwareConnectModal
+        visible={connectModalVisible}
+        onClose={() => {
+          setConnectModalVisible(false);
           fetchDiagnostics();
         }}
       />
@@ -252,6 +317,63 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 36,
+  },
+  connPillContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.SurfaceCard,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: Colors.CardBorder,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    marginBottom: 14,
+  },
+  connPillBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  connPillBleActive: {
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+  },
+  connPillWifiActive: {
+    backgroundColor: "rgba(6, 182, 212, 0.12)",
+  },
+  connPillInactive: {
+    backgroundColor: "transparent",
+  },
+  pillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  pillIcon: {
+    fontSize: responsiveFont(11),
+  },
+  pillText: {
+    color: Colors.TextMuted,
+    fontSize: responsiveFont(10),
+    fontWeight: "700",
+  },
+  pillTextBleActive: {
+    color: Colors.NeonEmerald,
+    fontWeight: "800",
+  },
+  pillTextWifiActive: {
+    color: Colors.ElectricCyan,
+    fontWeight: "800",
+  },
+  pillDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    marginHorizontal: 2,
   },
   header: {
     flexDirection: "row",
@@ -304,20 +426,20 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   visualizerCard: {
-    backgroundColor: Colors.SurfaceDark,
+    backgroundColor: Colors.SurfaceCard,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.BorderGlow,
+    borderColor: Colors.CardBorder,
     overflow: "hidden",
     marginBottom: 14,
   },
   telemetryCard: {
     flexDirection: "row",
-    backgroundColor: Colors.SurfaceDark,
+    backgroundColor: Colors.SurfaceCard,
     borderRadius: 16,
     padding: 12,
     borderWidth: 1,
-    borderColor: Colors.SurfaceHighlight,
+    borderColor: Colors.CardBorder,
     marginBottom: 12,
   },
   telemetryItem: {
@@ -328,7 +450,7 @@ const styles = StyleSheet.create({
   telemetryDivider: {
     width: 1,
     height: "100%",
-    backgroundColor: Colors.SurfaceHighlight,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   telemetryLabel: {
     fontSize: responsiveFont(9),
@@ -352,11 +474,11 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   hardwareDiagCard: {
-    backgroundColor: Colors.SurfaceDark,
+    backgroundColor: Colors.SurfaceCard,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: Colors.SurfaceHighlight,
+    borderColor: Colors.CardBorder,
     marginBottom: 14,
   },
   diagHeader: {
@@ -421,7 +543,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   actionsContainer: {
-    marginTop: 6,
+    marginTop: 8,
   },
   splitRow: {
     flexDirection: "row",
@@ -430,51 +552,111 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 0.48,
-    height: 56,
-    borderRadius: 14,
-    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1.5,
     alignItems: "center",
-    paddingHorizontal: 6,
+    justifyContent: "center",
   },
-  raiseBtn: {
-    backgroundColor: Colors.IceBlue,
+  raiseCardBtn: {
+    backgroundColor: "rgba(6, 182, 212, 0.12)",
+    borderColor: Colors.ElectricCyan,
   },
-  lowerBtn: {
-    backgroundColor: Colors.CyberAmber,
+  lowerCardBtn: {
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    borderColor: Colors.CyberAmber,
   },
   disabledBtn: {
-    opacity: 0.4,
+    opacity: 0.35,
   },
-  actionIcon: {
-    fontSize: responsiveFont(13),
-    fontWeight: "900",
-    color: Colors.VoidBlack,
-    marginBottom: 2,
-  },
-  actionText: {
-    fontSize: responsiveFont(12),
-    fontWeight: "900",
-    letterSpacing: 0.5,
-    color: Colors.VoidBlack,
-  },
-  stopBtn: {
-    height: 60,
-    backgroundColor: Colors.CrimsonRed,
-    borderRadius: 14,
-    flexDirection: "row",
-    justifyContent: "center",
+  raiseIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.ElectricCyan,
     alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: Colors.CrimsonDark,
-    paddingHorizontal: 12,
+    justifyContent: "center",
+    marginBottom: 8,
   },
-  stopIcon: {
-    fontSize: responsiveFont(16),
-    marginRight: 6,
+  lowerIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.CyberAmber,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
   },
-  stopText: {
+  raiseIconArrow: {
+    color: Colors.VoidBlack,
+    fontSize: responsiveFont(15),
+    fontWeight: "900",
+  },
+  lowerIconArrow: {
+    color: Colors.VoidBlack,
+    fontSize: responsiveFont(15),
+    fontWeight: "900",
+  },
+  actionBtnTitle: {
+    fontSize: responsiveFont(14),
+    fontWeight: "900",
+    letterSpacing: 1,
     color: Colors.TextWhite,
+  },
+  actionBtnSubtitle: {
+    fontSize: responsiveFont(9),
+    fontWeight: "700",
+    color: Colors.TextMuted,
+    marginTop: 2,
+  },
+  stopCardBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(239, 68, 68, 0.14)",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.CrimsonRed,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  stopIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(239, 68, 68, 0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  stopIconText: {
+    fontSize: responsiveFont(18),
+  },
+  stopTextCol: {
+    flex: 1,
+  },
+  stopMainTitle: {
+    color: Colors.CrimsonRed,
     fontSize: responsiveFont(13),
+    fontWeight: "900",
+    letterSpacing: 0.8,
+  },
+  stopSubTitle: {
+    color: Colors.TextMuted,
+    fontSize: responsiveFont(9),
+    marginTop: 1,
+    fontWeight: "600",
+  },
+  stopPulseBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: Colors.CrimsonRed,
+  },
+  stopPulseText: {
+    color: Colors.TextWhite,
+    fontSize: responsiveFont(9),
     fontWeight: "900",
     letterSpacing: 0.5,
   },

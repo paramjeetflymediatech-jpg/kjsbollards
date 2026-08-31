@@ -14,7 +14,7 @@ import {
 } from "../types";
 
 const STORAGE_KEY_DEVICE_ID = "@kjs_device_unique_id";
-const DEFAULT_PROD_URL = "https://api.kjsbollards.co.uk";
+const DEFAULT_PROD_URL = Platform.OS === "android" ? "http://10.0.2.2:3000" : "http://localhost:3000";
 
 class ApiClient {
   private baseUrl: string = DEFAULT_PROD_URL;
@@ -53,7 +53,7 @@ class ApiClient {
         deviceId = `dev-${Platform.OS}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
         await AsyncStorage.setItem(STORAGE_KEY_DEVICE_ID, deviceId);
       }
-    } catch (_) {
+    } catch {
       deviceId = `dev-${Platform.OS}-${Date.now()}`;
     }
 
@@ -99,7 +99,7 @@ class ApiClient {
       }
 
       return newSession;
-    } catch (_) {
+    } catch {
       return null;
     } finally {
       this.isRefreshing = false;

@@ -20,13 +20,13 @@ export const BollardCard: React.FC<BollardCardProps> = ({ bollard, onPress }) =>
 
   return (
     <TouchableOpacity
-      style={[styles.container, { borderColor: `${statusColor}40` }]}
+      style={[styles.container, { borderColor: `${statusColor}35` }]}
       onPress={onPress}
       activeOpacity={0.75}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       {/* Icon visual block */}
-      <View style={[styles.iconBlock, { backgroundColor: `${statusColor}20` }]}>
+      <View style={[styles.iconBlock, { backgroundColor: `${statusColor}18` }]}>
         <Text style={[styles.iconText, { color: statusColor }]}>
           {isRaised ? "▲" : isLowered ? "▼" : "■"}
         </Text>
@@ -56,7 +56,7 @@ export const BollardCard: React.FC<BollardCardProps> = ({ bollard, onPress }) =>
       <View
         style={[
           styles.badge,
-          { backgroundColor: `${statusColor}25`, borderColor: `${statusColor}80` },
+          { backgroundColor: `${statusColor}18`, borderColor: `${statusColor}60` },
         ]}
       >
         <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
@@ -76,72 +76,70 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.SurfaceDark,
+    backgroundColor: Colors.SurfaceCard,
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   iconBlock: {
     width: 38,
     height: 38,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
+    marginRight: 12,
   },
   iconText: {
-    fontSize: responsiveFont(16),
-    fontWeight: "bold",
+    fontSize: responsiveFont(15),
+    fontWeight: "900",
   },
   info: {
     flex: 1,
-    paddingRight: 6,
+    paddingRight: 8,
   },
   name: {
-    fontSize: responsiveFont(14),
-    fontWeight: "700",
+    fontSize: responsiveFont(13),
+    fontWeight: "800",
     color: Colors.TextWhite,
+    letterSpacing: 0.3,
   },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 3,
-    flexWrap: "nowrap",
+    marginTop: 4,
   },
   serial: {
     fontSize: responsiveFont(10),
-    fontFamily: "Courier",
-    color: Colors.TextSubtle,
+    color: Colors.TextMuted,
+    fontFamily: "monospace",
   },
   separator: {
-    color: Colors.TextSubtle,
-    marginHorizontal: 4,
     fontSize: responsiveFont(10),
+    color: Colors.TextSubtle,
+    marginHorizontal: 6,
   },
   safetyStatus: {
     fontSize: responsiveFont(10),
-    fontWeight: "600",
-    flexShrink: 1,
+    fontWeight: "700",
   },
   badge: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    minWidth: 70,
-    justifyContent: "center",
+    gap: 5,
   },
   statusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    marginRight: 4,
   },
   badgeText: {
-    fontSize: responsiveFont(10),
+    fontSize: responsiveFont(9),
     fontWeight: "900",
+    letterSpacing: 0.5,
   },
 });

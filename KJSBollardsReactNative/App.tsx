@@ -44,7 +44,8 @@ export default function App() {
     api.onTokenRefreshed(async (newSession) => {
       try {
         await AsyncStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(newSession));
-      } catch (_) {}
+      } catch {
+      }
     });
   }, []);
 
@@ -75,8 +76,7 @@ export default function App() {
             setAlerts(remoteAlerts || []);
           }
         }
-      } catch (_) {
-      }
+      } catch {}
     };
     restoreSession();
   }, []);
@@ -164,7 +164,7 @@ export default function App() {
     setSelectedBollard(null);
     try {
       await AsyncStorage.removeItem(STORAGE_KEY_SESSION);
-    } catch (_) {}
+    } catch {}
   };
 
   const handleAddBollard = async (siteId: string, newBollard: Bollard) => {
@@ -365,7 +365,7 @@ export default function App() {
             {/* Bottom Nav */}
             <View style={styles.bottomNav}>
               <TouchableOpacity
-                style={styles.navItem}
+                style={[styles.navItem, screen === "dashboard" && styles.navItemActive]}
                 onPress={() => setScreen("dashboard")}
                 activeOpacity={0.8}
               >
@@ -378,7 +378,7 @@ export default function App() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.navItem}
+                style={[styles.navItem, screen === "sites" && styles.navItemActive]}
                 onPress={() => setScreen("sites")}
                 activeOpacity={0.8}
               >
@@ -391,7 +391,7 @@ export default function App() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.navItem}
+                style={[styles.navItem, screen === "events" && styles.navItemActive]}
                 onPress={() => setScreen("events")}
                 activeOpacity={0.8}
               >
@@ -404,7 +404,7 @@ export default function App() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.navItem}
+                style={[styles.navItem, screen === "settings" && styles.navItemActive]}
                 onPress={() => setScreen("settings")}
                 activeOpacity={0.8}
               >
@@ -450,10 +450,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: Colors.SurfaceDark,
+    paddingVertical: 12,
+    backgroundColor: Colors.SurfaceCard,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.SurfaceHighlight,
+    borderBottomColor: Colors.CardBorder,
   },
   brandRow: {
     flexDirection: "row",
@@ -480,12 +480,14 @@ const styles = StyleSheet.create({
     fontSize: responsiveFont(9),
     fontWeight: "700",
     letterSpacing: 0.5,
-    marginTop: 1,
+    marginTop: 2,
   },
   refreshBtn: {
-    padding: 6,
-    borderRadius: 8,
+    padding: 8,
+    borderRadius: 10,
     backgroundColor: Colors.SurfaceHighlight,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   refreshIcon: {
     fontSize: responsiveFont(14),
@@ -496,23 +498,27 @@ const styles = StyleSheet.create({
   },
   bottomNav: {
     flexDirection: "row",
-    height: 60,
-    backgroundColor: Colors.SurfaceDark,
+    height: 64,
+    backgroundColor: Colors.SurfaceCard,
     borderTopWidth: 1,
-    borderTopColor: Colors.SurfaceHighlight,
+    borderTopColor: Colors.CardBorder,
     justifyContent: "space-around",
     alignItems: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
   },
   navItem: {
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  navItemActive: {
+    backgroundColor: "rgba(6, 182, 212, 0.12)",
   },
   navIcon: {
-    fontSize: responsiveFont(18),
-    opacity: 0.5,
+    fontSize: responsiveFont(17),
+    opacity: 0.45,
     marginBottom: 2,
   },
   navIconActive: {
@@ -521,10 +527,11 @@ const styles = StyleSheet.create({
   navLabel: {
     fontSize: responsiveFont(9),
     fontWeight: "800",
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     color: Colors.TextMuted,
   },
   navLabelActive: {
     color: Colors.ElectricCyan,
+    fontWeight: "900",
   },
 });

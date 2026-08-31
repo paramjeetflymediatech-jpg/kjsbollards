@@ -13,7 +13,7 @@ import {
 import { Site, Bollard } from "../types";
 import { Colors } from "../theme/colors";
 import { responsiveFont } from "../theme/responsive";
-import { api } from "../api/client";
+import { HardwareConnectModal } from "./HardwareConnectModal";
 
 interface AddBollardModalProps {
   visible: boolean;
@@ -35,6 +35,7 @@ export const AddBollardModal: React.FC<AddBollardModalProps> = ({
   const [selectedSiteId, setSelectedSiteId] = useState<string>(sites[0]?.id || "");
   const [safetyLoop, setSafetyLoop] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [connectModalVisible, setConnectModalVisible] = useState(false);
 
   // Check if serial already registered across any site
   const isSerialTaken = (serial: string): boolean => {
@@ -143,6 +144,22 @@ export const AddBollardModal: React.FC<AddBollardModalProps> = ({
               autoCapitalize="characters"
             />
 
+            {/* Quick Auto-Detect via BLE / Wi-Fi button */}
+            <TouchableOpacity
+              style={styles.scanBleWifiBtn}
+              onPress={() => setConnectModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.scanIconBadge}>
+                <Text style={styles.scanIconEmoji}>📡</Text>
+              </View>
+              <View style={styles.scanTextWrap}>
+                <Text style={styles.scanBleWifiTitle}>Auto-Detect Hardware</Text>
+                <Text style={styles.scanBleWifiSubtitle}>Scan nearby Bluetooth & Wi-Fi controllers</Text>
+              </View>
+              <Text style={styles.scanArrow}>›</Text>
+            </TouchableOpacity>
+
             {/* Target Site Selection */}
             <Text style={styles.label}>ASSIGN TO PERIMETER SITE</Text>
             <View style={styles.sitesPicker}>
@@ -202,6 +219,17 @@ export const AddBollardModal: React.FC<AddBollardModalProps> = ({
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Hardware Connection (BLE & Wi-Fi) Modal */}
+      <HardwareConnectModal
+        visible={connectModalVisible}
+        onClose={() => setConnectModalVisible(false)}
+        onBollardPaired={(serial, autoName) => {
+          setDeviceCode(serial);
+          if (autoName && !name) setName(autoName);
+          setConnectModalVisible(false);
+        }}
+      />
     </Modal>
   );
 };
@@ -413,6 +441,48 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     color: Colors.TextMuted,
     fontSize: responsiveFont(11),
+    fontWeight: "700",
+  },
+  scanBleWifiBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(6, 182, 212, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(6, 182, 212, 0.35)",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 14,
+    gap: 10,
+  },
+  scanIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: "rgba(6, 182, 212, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scanIconEmoji: {
+    fontSize: responsiveFont(14),
+  },
+  scanTextWrap: {
+    flex: 1,
+  },
+  scanBleWifiTitle: {
+    color: Colors.ElectricCyan,
+    fontSize: responsiveFont(11),
+    fontWeight: "900",
+    letterSpacing: 0.3,
+  },
+  scanBleWifiSubtitle: {
+    color: Colors.TextMuted,
+    fontSize: responsiveFont(9),
+    marginTop: 2,
+  },
+  scanArrow: {
+    color: Colors.ElectricCyan,
+    fontSize: responsiveFont(18),
     fontWeight: "700",
   },
 });

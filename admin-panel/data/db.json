@@ -176,5 +176,19 @@
     }
   ],
   "commands": [],
-  "userDevices": []
+  "userDevices": [
+    {
+      "id": "ud-1788157614308",
+      "userId": "usr-admin-01",
+      "deviceId": "dev-ios-1788157461745-eu5pb1",
+      "platform": "ios",
+      "model": "IOS Device (26.5)",
+      "osVersion": "26.5",
+      "appVersion": "1.2.0",
+      "pushToken": null,
+      "lastSeen": "2026-08-31T06:32:37.569Z",
+      "ipAddress": "::1",
+      "createdAt": "2026-08-31T06:26:54.308Z"
+    }
+  ]
 }
