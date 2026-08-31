@@ -47,14 +47,14 @@ export const sequelize = DATABASE_URL
 
 // 1. UserModel
 export class UserModel extends Model<DBUser, Optional<DBUser, "updatedAt">> implements DBUser {
-  public id!: string;
-  public name!: string;
-  public email!: string;
-  public passwordHash!: string;
-  public role!: "admin" | "owner" | "operator" | "family" | "staff" | "viewer";
-  public enabled!: boolean;
-  public createdAt!: string;
-  public updatedAt?: string;
+  declare id: string;
+  declare name: string;
+  declare email: string;
+  declare passwordHash: string;
+  declare role: "admin" | "owner" | "operator" | "family" | "staff" | "viewer";
+  declare enabled: boolean;
+  declare createdAt: string;
+  declare updatedAt?: string;
 }
 
 UserModel.init(
@@ -77,12 +77,12 @@ UserModel.init(
 
 // 2. SiteModel
 export class SiteModel extends Model<DBSite, Optional<DBSite, "address" | "ownerId">> implements DBSite {
-  public id!: string;
-  public name!: string;
-  public address?: string;
-  public ownerId?: string | null;
-  public enabled!: boolean;
-  public createdAt!: string;
+  declare id: string;
+  declare name: string;
+  declare address?: string;
+  declare ownerId?: string | null;
+  declare enabled: boolean;
+  declare createdAt: string;
 }
 
 SiteModel.init(
@@ -119,21 +119,21 @@ export class BollardModel
   >
   implements DBBollard
 {
-  public id!: string;
-  public name!: string;
-  public deviceCode!: string;
-  public status!: "RAISED" | "LOWERED" | "STOPPED";
-  public enabled!: boolean;
-  public siteId?: string | null;
-  public openDuration?: number;
-  public reboundSensitivity?: number;
-  public cycleCount!: number;
-  public pulseDuration?: number;
-  public in1Type?: string;
-  public in2Type?: string;
-  public speed?: number;
-  public autoCloseDelay?: number;
-  public createdAt!: string;
+  declare id: string;
+  declare name: string;
+  declare deviceCode: string;
+  declare status: "RAISED" | "LOWERED" | "STOPPED";
+  declare enabled: boolean;
+  declare siteId?: string | null;
+  declare openDuration?: number;
+  declare reboundSensitivity?: number;
+  declare cycleCount: number;
+  declare pulseDuration?: number;
+  declare in1Type?: string;
+  declare in2Type?: string;
+  declare speed?: number;
+  declare autoCloseDelay?: number;
+  declare createdAt: string;
 }
 
 BollardModel.init(
@@ -163,9 +163,9 @@ BollardModel.init(
 
 // 4. GateLinkDeviceModel
 export class GateLinkDeviceModel extends Model<DBGateLinkDevice> implements DBGateLinkDevice {
-  public deviceCode!: string;
-  public deviceName!: string;
-  public online!: boolean;
+  declare deviceCode: string;
+  declare deviceName: string;
+  declare online: boolean;
 }
 
 GateLinkDeviceModel.init(
@@ -183,15 +183,15 @@ GateLinkDeviceModel.init(
 
 // 5. MqttTelemetryModel
 export class MqttTelemetryModel extends Model<DBMqttTelemetry> implements DBMqttTelemetry {
-  public sn!: string;
-  public online!: boolean;
-  public lastSeen!: string;
-  public hardwareVersion!: string;
-  public softwareVersion!: string;
-  public signalStrength!: number;
-  public inputs!: boolean[];
-  public outputs!: boolean[];
-  public cycleCount!: number;
+  declare sn: string;
+  declare online: boolean;
+  declare lastSeen: string;
+  declare hardwareVersion: string;
+  declare softwareVersion: string;
+  declare signalStrength: number;
+  declare inputs: boolean[];
+  declare outputs: boolean[];
+  declare cycleCount: number;
 }
 
 MqttTelemetryModel.init(
@@ -223,13 +223,13 @@ MqttTelemetryModel.init(
 
 // 6. AuditLogModel
 export class AuditLogModel extends Model<DBAuditLog, Optional<DBAuditLog, "userId" | "remoteIp">> implements DBAuditLog {
-  public id!: string;
-  public userId?: string | null;
-  public eventType!: string;
-  public detail!: any;
-  public severity!: "info" | "warning" | "high";
-  public remoteIp?: string;
-  public createdAt!: string;
+  declare id: string;
+  declare userId?: string | null;
+  declare eventType: string;
+  declare detail: any;
+  declare severity: "info" | "warning" | "high";
+  declare remoteIp?: string;
+  declare createdAt: string;
 }
 
 AuditLogModel.init(
@@ -254,12 +254,12 @@ export class CommandRequestModel
   extends Model<DBCommandRequest, Optional<DBCommandRequest, "userId">>
   implements DBCommandRequest
 {
-  public id!: string;
-  public bollardId!: string;
-  public userId?: string | null;
-  public action!: "raise" | "lower" | "stop";
-  public status!: "pending" | "dispatched" | "completed" | "failed";
-  public createdAt!: string;
+  declare id: string;
+  declare bollardId: string;
+  declare userId?: string | null;
+  declare action: "raise" | "lower" | "stop";
+  declare status: "pending" | "dispatched" | "completed" | "failed";
+  declare createdAt: string;
 }
 
 CommandRequestModel.init(
@@ -283,17 +283,17 @@ export class UserDeviceModel
   extends Model<DBUserDevice, Optional<DBUserDevice, "model" | "osVersion" | "appVersion" | "pushToken" | "ipAddress">>
   implements DBUserDevice
 {
-  public id!: string;
-  public userId!: string;
-  public deviceId!: string;
-  public platform!: string;
-  public model?: string;
-  public osVersion?: string;
-  public appVersion?: string;
-  public pushToken?: string | null;
-  public lastSeen!: string;
-  public ipAddress?: string;
-  public createdAt!: string;
+  declare id: string;
+  declare userId: string;
+  declare deviceId: string;
+  declare platform: string;
+  declare model?: string;
+  declare osVersion?: string;
+  declare appVersion?: string;
+  declare pushToken?: string | null;
+  declare lastSeen: string;
+  declare ipAddress?: string;
+  declare createdAt: string;
 }
 
 UserDeviceModel.init(

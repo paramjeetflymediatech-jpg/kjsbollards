@@ -1,6 +1,16 @@
 {
   "users": [
     {
+      "id": "usr-admin-1788151902506",
+      "name": "Super Administrator",
+      "email": "superadmin@kjsbollards.co.uk",
+      "passwordHash": "$2b$10$GBSVpDdKgbZGTW7QhzCAuuxQW4BiJKACIOlRn8Pa.BL9jnOu.ZlHe",
+      "role": "admin",
+      "enabled": true,
+      "createdAt": "2026-08-31T04:51:42.506Z",
+      "updatedAt": "2026-08-31T04:51:42.506Z"
+    },
+    {
       "id": "usr-admin-01",
       "name": "Master Administrator",
       "email": "admin@kjsbollards.co.uk",
@@ -165,5 +175,6 @@
       "createdAt": "2026-08-27T08:57:54.554Z"
     }
   ],
-  "commands": []
+  "commands": [],
+  "userDevices": []
 }
