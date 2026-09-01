@@ -12,7 +12,9 @@ import {
   AlertCircle,
   Search,
   CheckSquare,
-  Square
+  Square,
+  Plus,
+  X,
 } from "lucide-react";
 
 export function GateLinkTab() {
@@ -21,6 +23,11 @@ export function GateLinkTab() {
   const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [releasing, setReleasing] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addingDevice, setAddingDevice] = useState(false);
+  const [newDeviceCode, setNewDeviceCode] = useState("");
+  const [newDeviceName, setNewDeviceName] = useState("");
+  const [autoCreateLocal, setAutoCreateLocal] = useState(true);
 
   const loadDevices = async () => {
     setLoading(true);
@@ -99,6 +106,35 @@ export function GateLinkTab() {
     }
   };
 
+  const handleAddDevice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDeviceCode.trim()) {
+      showToast("Please enter a device code / serial", "danger");
+      return;
+    }
+
+    setAddingDevice(true);
+    try {
+      const res = await apiRequest<{ success: boolean; message: string }>("/v1/admin/gatelink/devices", {
+        method: "POST",
+        body: JSON.stringify({
+          deviceCode: newDeviceCode.trim().toUpperCase(),
+          deviceName: newDeviceName.trim() || undefined,
+          autoCreateLocalBollard: autoCreateLocal,
+        }),
+      });
+      showToast(res.message || "Device added to GateLink Cloud", "success");
+      setNewDeviceCode("");
+      setNewDeviceName("");
+      setIsAddModalOpen(false);
+      loadDevices();
+    } catch (err: any) {
+      showToast(err.message || "Failed to add GateLink device", "danger");
+    } finally {
+      setAddingDevice(false);
+    }
+  };
+
   const isAllSelected = devices.length > 0 && selectedCodes.size === devices.length;
 
   return (
@@ -128,9 +164,17 @@ export function GateLinkTab() {
           )}
 
           <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Cloud Device</span>
+          </button>
+
+          <button
             onClick={loadDevices}
             disabled={loading}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 text-xs font-semibold transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-cyan-400" : ""}`} />
             <span>Sync Cloud</span>
@@ -250,6 +294,99 @@ export function GateLinkTab() {
           </table>
         </div>
       </div>
+
+      {/* Manual GateLink Device Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/[0.02]">
+              <div className="flex items-center gap-2">
+                <Globe2 className="w-4 h-4 text-cyan-400" />
+                <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider">
+                  Add GateLink Cloud Device
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddDevice} className="p-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Device Code / Serial Number <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. RC200-A5B1-01"
+                  value={newDeviceCode}
+                  onChange={(e) => setNewDeviceCode(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-mono placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 transition-colors uppercase"
+                  required
+                  autoFocus
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Enter the hardware serial number printed on your RC200 / GateLink relay controller.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Friendly Device Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Main Entrance Gate #1"
+                  value={newDeviceName}
+                  onChange={(e) => setNewDeviceName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="autoCreateLocal"
+                  checked={autoCreateLocal}
+                  onChange={(e) => setAutoCreateLocal(e.target.checked)}
+                  className="rounded border-white/20 text-cyan-500 focus:ring-0 cursor-pointer"
+                />
+                <label
+                  htmlFor="autoCreateLocal"
+                  className="text-xs text-slate-300 select-none cursor-pointer"
+                >
+                  Also register into local Bollards control fleet
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingDevice}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {addingDevice ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="w-3.5 h-3.5" />
+                  )}
+                  <span>{addingDevice ? "Adding..." : "Add Device"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
