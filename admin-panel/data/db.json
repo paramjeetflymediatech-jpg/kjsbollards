@@ -1,32 +1,22 @@
 {
   "users": [
     {
-      "id": "usr-admin-1788151902506",
-      "name": "Super Administrator",
-      "email": "superadmin@kjsbollards.co.uk",
-      "passwordHash": "$2b$10$GBSVpDdKgbZGTW7QhzCAuuxQW4BiJKACIOlRn8Pa.BL9jnOu.ZlHe",
-      "role": "admin",
-      "enabled": true,
-      "createdAt": "2026-08-31T04:51:42.506Z",
-      "updatedAt": "2026-08-31T04:51:42.506Z"
-    },
-    {
       "id": "usr-admin-01",
       "name": "Master Administrator",
       "email": "admin@kjsbollards.co.uk",
-      "passwordHash": "$2b$10$tBmbpbjmXfh1T8f25guVteDXqLd.m72OEfCivsnVD2R/6HpcLZul.",
+      "passwordHash": "$2b$10$dncSLqDxkieco8tpM5oOKeDZEOH.C9McSZywm6Hcud6e4Ng9zxKE6",
       "role": "admin",
       "enabled": true,
-      "createdAt": "2026-08-27T09:57:54.554Z"
+      "createdAt": "2026-09-01T05:04:03.556Z"
     },
     {
       "id": "usr-op-02",
       "name": "Site Security Lead",
       "email": "operator@kjsbollards.co.uk",
-      "passwordHash": "$2b$10$lypNf3nt6o8uSEa65YHaU..dQAyd.3t/ltl0zysX7ZWluIDv8EA/m",
+      "passwordHash": "$2b$10$NxAcd/3/WIy0cP9GvrOM3uhgl8TOYj7Kr0bN06qR1W58itxktmjYe",
       "role": "operator",
       "enabled": true,
-      "createdAt": "2026-08-27T09:57:54.554Z"
+      "createdAt": "2026-09-01T05:04:03.557Z"
     }
   ],
   "sites": [
@@ -36,7 +26,7 @@
       "address": "14 Berkeley Square, Mayfair, London W1J 6BQ",
       "ownerId": "usr-op-02",
       "enabled": true,
-      "createdAt": "2026-08-27T09:57:54.554Z"
+      "createdAt": "2026-09-01T05:04:03.557Z"
     },
     {
       "id": "site-log-02",
@@ -44,7 +34,7 @@
       "address": "Unit 4, Gateway Industrial Estate, Manchester",
       "ownerId": "usr-op-02",
       "enabled": true,
-      "createdAt": "2026-08-27T09:57:54.554Z"
+      "createdAt": "2026-09-01T05:04:03.557Z"
     }
   ],
   "bollards": [
@@ -57,7 +47,7 @@
       "siteId": "site-hq-01",
       "cycleCount": 1420,
       "openDuration": 6,
-      "createdAt": "2026-08-27T09:57:54.554Z"
+      "createdAt": "2026-09-01T05:04:03.557Z"
     },
     {
       "id": "bol-02",
@@ -68,7 +58,7 @@
       "siteId": "site-hq-01",
       "cycleCount": 1390,
       "openDuration": 6,
-      "createdAt": "2026-08-27T09:57:54.554Z"
+      "createdAt": "2026-09-01T05:04:03.557Z"
     },
     {
       "id": "bol-03",
@@ -79,23 +69,23 @@
       "siteId": "site-log-02",
       "cycleCount": 840,
       "openDuration": 8,
-      "createdAt": "2026-08-27T09:57:54.554Z"
+      "createdAt": "2026-09-01T05:04:03.557Z"
     }
   ],
   "gatelinkCloudDevices": [
     {
       "deviceCode": "RC200-A5B1-01",
-      "deviceName": "Main Entrance Controller",
+      "deviceName": "Mayfair Gate 1 (RC200)",
       "online": true
     },
     {
       "deviceCode": "RC200-A5B1-02",
-      "deviceName": "Secondary Gate Controller",
+      "deviceName": "Mayfair Gate 2 (RC200)",
       "online": true
     },
     {
       "deviceCode": "RC200-B2C3-01",
-      "deviceName": "North Perimeter 4G",
+      "deviceName": "Logistics Access Control (RC200)",
       "online": true
     }
   ],
@@ -103,13 +93,13 @@
     {
       "sn": "RC200-A5B1-01",
       "online": true,
-      "lastSeen": "2026-08-27T09:57:54.554Z",
-      "hardwareVersion": "1.11",
-      "softwareVersion": "1.01",
-      "signalStrength": 72,
+      "lastSeen": "2026-09-01T05:04:03.557Z",
+      "hardwareVersion": "1.10",
+      "softwareVersion": "1.02",
+      "signalStrength": 78,
       "inputs": [
         true,
-        false,
+        true,
         false
       ],
       "outputs": [
@@ -123,7 +113,7 @@
     {
       "sn": "RC200-A5B1-02",
       "online": true,
-      "lastSeen": "2026-08-27T09:57:54.554Z",
+      "lastSeen": "2026-09-01T05:04:03.557Z",
       "hardwareVersion": "1.11",
       "softwareVersion": "1.01",
       "signalStrength": 65,
@@ -143,7 +133,7 @@
     {
       "sn": "RC200-B2C3-01",
       "online": true,
-      "lastSeen": "2026-08-27T09:57:54.554Z",
+      "lastSeen": "2026-09-01T05:04:03.557Z",
       "hardwareVersion": "1.20",
       "softwareVersion": "1.04",
       "signalStrength": 84,
@@ -163,7 +153,7 @@
   ],
   "auditLogs": [
     {
-      "id": "aud-1787824674554-1",
+      "id": "aud-1788239043557-1",
       "userId": "usr-admin-01",
       "eventType": "system_startup",
       "detail": {
@@ -172,23 +162,9 @@
       },
       "severity": "info",
       "remoteIp": "127.0.0.1",
-      "createdAt": "2026-08-27T08:57:54.554Z"
+      "createdAt": "2026-09-01T04:04:03.557Z"
     }
   ],
   "commands": [],
-  "userDevices": [
-    {
-      "id": "ud-1788157614308",
-      "userId": "usr-admin-01",
-      "deviceId": "dev-ios-1788157461745-eu5pb1",
-      "platform": "ios",
-      "model": "IOS Device (26.5)",
-      "osVersion": "26.5",
-      "appVersion": "1.2.0",
-      "pushToken": null,
-      "lastSeen": "2026-08-31T06:32:37.569Z",
-      "ipAddress": "::1",
-      "createdAt": "2026-08-31T06:26:54.308Z"
-    }
-  ]
+  "userDevices": []
 }

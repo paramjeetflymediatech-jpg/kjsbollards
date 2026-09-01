@@ -12,6 +12,8 @@ import { User, Site, Bollard, EventItem, ScreenType, Movement, AuthorizedUser, S
 import { Colors } from "./src/theme/colors";
 import { responsiveFont } from "./src/theme/responsive";
 import { api } from "./src/api/client";
+import { bluetoothService } from "./src/services/bluetooth";
+import { wifiProvisioningService } from "./src/services/wifiProvisioning";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { ControlScreen } from "./src/screens/ControlScreen";
@@ -230,19 +232,68 @@ export default function App() {
     setActiveMovement(action);
     setIsMoving(true);
     setError(null);
-    setSuccessMessage(`Command [${action.toUpperCase()}] dispatched via GateLink`);
 
+    let bleResult: { success: boolean; latencyMs: number } | null = null;
+    let wifiResult: { success: boolean; latencyMs: number } | null = null;
+    let cloudSuccess = false;
+    let cloudError = "";
+
+    // 1. Direct BLE Hardware Command (instant offline relay trigger)
+    const isBleConnected = bluetoothService.isDeviceConnected(selectedBollard.serial || selectedBollard.id);
+    if (isBleConnected) {
+      try {
+        bleResult = await bluetoothService.sendBleCommand(action);
+      } catch (bleErr: any) {
+        console.warn("[HybridControl] BLE trigger error:", bleErr.message);
+      }
+    }
+
+    // 2. Direct Local Wi-Fi Hardware Command (if on RC200 SoftAP / local network)
+    if (!bleResult) {
+      try {
+        wifiResult = await wifiProvisioningService.sendLocalWifiCommand(action);
+      } catch {
+        // SoftAP/local probe fallback
+      }
+    }
+
+    // 3. GateLink Cloud API Command
     try {
       await api.sendCommand(selectedBollard.id, action);
-      const newStatus = action === "raise" ? "RAISED" : action === "lower" ? "LOWERED" : "STOPPED";
-      setSelectedBollard({ ...selectedBollard, status: newStatus });
-      await fetchRemoteData();
-    } catch (err: any) {
-      setError(`GateLink Relay Error: ${err.message}`);
-    } finally {
-      setIsMoving(false);
-      setActiveMovement(null);
+      cloudSuccess = true;
+    } catch (apiErr: any) {
+      cloudError = apiErr.message || "Cloud sync error";
     }
+
+    // Update local bollard state immediately
+    const newStatus = action === "raise" ? "RAISED" : action === "lower" ? "LOWERED" : "STOPPED";
+    setSelectedBollard({ ...selectedBollard, status: newStatus });
+
+    // Inform user of execution path
+    if (bleResult) {
+      setSuccessMessage(
+        `⚡ Triggered [${action.toUpperCase()}] via BLE Direct (${bleResult.latencyMs}ms)${
+          cloudSuccess ? " • GateLink Cloud Synced" : ""
+        }`
+      );
+    } else if (wifiResult) {
+      setSuccessMessage(
+        `📶 Triggered [${action.toUpperCase()}] via Local Wi-Fi (${wifiResult.latencyMs}ms)${
+          cloudSuccess ? " • GateLink Cloud Synced" : ""
+        }`
+      );
+    } else if (cloudSuccess) {
+      setSuccessMessage(`☁️ Dispatched [${action.toUpperCase()}] via GateLink Cloud`);
+    } else {
+      setError(`Hardware & Cloud Error: ${cloudError || "Command failed to reach device"}`);
+    }
+
+    try {
+      await fetchRemoteData();
+    } catch {}
+
+    setIsMoving(false);
+    setActiveMovement(null);
   };
 
   const isOwner = user?.role === "owner" || user?.role === "admin";

@@ -60,6 +60,31 @@ function stringToBase64(input: string): string {
   return output;
 }
 
+function byteArrayToBase64(bytes: number[]): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+  let output = "";
+  let i = 0;
+  while (i < bytes.length) {
+    const c1 = bytes[i++];
+    const c2 = bytes[i++];
+    const c3 = bytes[i++];
+
+    const e1 = c1 >> 2;
+    const e2 = ((c1 & 3) << 4) | (c2 >> 4);
+    let e3 = ((c2 & 15) << 2) | (c3 >> 6);
+    let e4 = c3 & 63;
+
+    if (isNaN(c2)) {
+      e3 = e4 = 64;
+    } else if (isNaN(c3)) {
+      e4 = 64;
+    }
+
+    output += chars.charAt(e1) + chars.charAt(e2) + chars.charAt(e3) + chars.charAt(e4);
+  }
+  return output;
+}
+
 class BluetoothService {
   private bleManager: BleManager | null = null;
   private state: BleConnectionState = "disconnected";
@@ -359,42 +384,75 @@ class BluetoothService {
     this.notify();
   }
 
+  public isDeviceConnected(targetSerialOrId?: string): boolean {
+    if (!this.connectedDevice || this.state !== "connected") return false;
+    if (!targetSerialOrId) return true;
+    const clean = targetSerialOrId.trim().toUpperCase();
+    const connSerial = (this.connectedDevice.serial || "").toUpperCase();
+    const connId = (this.connectedDevice.id || "").toUpperCase();
+    return (
+      connSerial === clean ||
+      connId === clean ||
+      connSerial.includes(clean) ||
+      clean.includes(connSerial)
+    );
+  }
+
   // Send direct offline command over real BLE
-  public async sendBleCommand(action: Movement): Promise<{ success: boolean; latencyMs: number }> {
+  public async sendBleCommand(action: Movement): Promise<{ success: boolean; latencyMs: number; mode: string }> {
     if (!this.connectedDevice || !this.activeNativeDevice || this.state !== "connected") {
       throw new Error("No physical RC200 controller is connected. Please pair via Bluetooth first.");
     }
 
     const startTime = Date.now();
-    const payloadJson = JSON.stringify({ cmd: action });
+    const target = await this.resolveWriteTarget(this.activeNativeDevice);
+
+    // Prepare primary JSON payload
+    const payloadJson = JSON.stringify({ cmd: action, action, timestamp: Date.now() });
     const payloadBase64 = stringToBase64(payloadJson);
 
-    try {
-      const target = await this.resolveWriteTarget(this.activeNativeDevice);
+    // Prepare alternate ASCII command (e.g. "RAISE\r\n" or "OPEN\r\n")
+    const asciiCmd = action === "raise" ? "OPEN\r\n" : action === "lower" ? "CLOSE\r\n" : "STOP\r\n";
+    const asciiBase64 = stringToBase64(asciiCmd);
 
-      if (target.withoutResponse) {
-        await this.activeNativeDevice.writeCharacteristicWithoutResponseForService(
-          target.serviceUuid,
-          target.charUuid,
-          payloadBase64
-        );
-      } else {
-        try {
-          await this.activeNativeDevice.writeCharacteristicWithResponseForService(
+    // Prepare binary relay packet: [Header 0xA1, Channel (1=Raise, 2=Lower, 3=Stop), Pulse 0x01, Checksum]
+    const ch = action === "raise" ? 1 : action === "lower" ? 2 : 3;
+    const binPacket = [0xa1, ch, 0x01, (0xa1 + ch + 0x01) & 0xff];
+    const binBase64 = byteArrayToBase64(binPacket);
+
+    try {
+      const writeFn = async (b64: string) => {
+        if (target.withoutResponse) {
+          await this.activeNativeDevice!.writeCharacteristicWithoutResponseForService(
             target.serviceUuid,
             target.charUuid,
-            payloadBase64
+            b64
           );
-        } catch (respErr) {
-          // If write with response failed or was rejected by characteristic, fallback to write without response
-          console.warn("[BLE] writeWithResponse failed, retrying without response:", respErr);
-          await this.activeNativeDevice.writeCharacteristicWithoutResponseForService(
-            target.serviceUuid,
-            target.charUuid,
-            payloadBase64
-          );
-          target.withoutResponse = true;
+        } else {
+          try {
+            await this.activeNativeDevice!.writeCharacteristicWithResponseForService(
+              target.serviceUuid,
+              target.charUuid,
+              b64
+            );
+          } catch {
+            await this.activeNativeDevice!.writeCharacteristicWithoutResponseForService(
+              target.serviceUuid,
+              target.charUuid,
+              b64
+            );
+            target.withoutResponse = true;
+          }
         }
+      };
+
+      // Transmit primary JSON and ASCII/Binary packets
+      await writeFn(payloadBase64);
+      try {
+        await writeFn(asciiBase64);
+        await writeFn(binBase64);
+      } catch {
+        // secondary packets sent on best effort
       }
 
       if (action === "raise") this.connectedDevice.status = "RAISED";
@@ -403,7 +461,7 @@ class BluetoothService {
       this.notify();
 
       const latencyMs = Date.now() - startTime;
-      return { success: true, latencyMs };
+      return { success: true, latencyMs, mode: "ble_direct" };
     } catch (err: any) {
       throw new Error(`Failed to transmit [${action.toUpperCase()}] to RC200: ${err.message}`);
     }

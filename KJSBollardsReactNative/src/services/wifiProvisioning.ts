@@ -244,6 +244,49 @@ class WifiProvisioningService {
       throw err;
     }
   }
+
+  // Send direct offline command over local Wi-Fi / SoftAP (192.168.4.1 or custom LAN IP)
+  public async sendLocalWifiCommand(
+    action: "raise" | "lower" | "stop",
+    hostIp: string = "192.168.4.1"
+  ): Promise<{ success: boolean; latencyMs: number; mode: string }> {
+    const startTime = Date.now();
+    const payload = { action, cmd: action, timestamp: Date.now() };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+    try {
+      // Try /api/control, fallback to /relay or /cmd
+      let res = await fetch(`http://${hostIp}/api/control`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      }).catch(async () => {
+        return fetch(`http://${hostIp}/relay?cmd=${action}`, {
+          method: "GET",
+          signal: controller.signal,
+        }).catch(async () => {
+          return fetch(`http://${hostIp}/cmd`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+        });
+      });
+
+      clearTimeout(timeoutId);
+
+      if (res && res.ok) {
+        return { success: true, latencyMs: Date.now() - startTime, mode: "wifi_local" };
+      }
+      throw new Error(`Controller at ${hostIp} responded with HTTP ${res?.status || 500}`);
+    } catch (err: any) {
+      throw new Error(`Local Wi-Fi trigger failed: ${err.message}`);
+    }
+  }
 }
 
 export const wifiProvisioningService = new WifiProvisioningService();
