@@ -73,7 +73,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       {/* Gateway Info */}
       <View style={styles.card}>
         <Text style={styles.cardHeader}>GATEWAY & AUTH TELEMETRY</Text>
-        <Text style={styles.gatewayLabel}>GateLink Open API: https://www.boleyun.cn</Text>
+        <Text style={styles.gatewayLabel}>GateLink Cloud: https://gatelink.jutaicloud.com</Text>
         <Text style={styles.gatewayLabel}>Security Interlock: Device Serial Anti-Theft Lock Active</Text>
         <TouchableOpacity style={styles.diagBtn} onPress={onViewDiagnostics} activeOpacity={0.8}>
           <Text style={styles.diagBtnText}>VIEW EXTENDED DIAGNOSTICS</Text>
