@@ -1,5 +1,4 @@
-// Bluetooth Low Energy (BLE) Proximity & Direct Control Service (Real Hardware Only)
-import { Platform, PermissionsAndroid } from "react-native";
+import { Platform, PermissionsAndroid, NativeModules } from "react-native";
 import { BleManager, Device, State as BleState } from "react-native-ble-plx";
 import { Movement } from "../types";
 
@@ -87,6 +86,7 @@ function byteArrayToBase64(bytes: number[]): string {
 
 class BluetoothService {
   private bleManager: BleManager | null = null;
+  private isNativeModuleChecked: boolean = false;
   private state: BleConnectionState = "disconnected";
   private discoveredDevices: Map<string, BleDevice> = new Map();
   private connectedDevice: BleDevice | null = null;
@@ -95,10 +95,25 @@ class BluetoothService {
   private listeners: Set<BleListener> = new Set();
 
   constructor() {
+    // Lazy initialization handled on demand via getBleManager()
+  }
+
+  private getBleManager(): BleManager | null {
+    if (this.bleManager) return this.bleManager;
+    if (this.isNativeModuleChecked) return null;
+
     try {
+      if (!NativeModules.BleClientManager && !NativeModules.BleClient) {
+        // Native Bluetooth module not linked or running in Simulator
+        this.isNativeModuleChecked = true;
+        return null;
+      }
       this.bleManager = new BleManager();
+      return this.bleManager;
     } catch (err) {
-      console.warn("BleManager initialization error:", err);
+      console.warn("BleManager not available on this environment (Simulator mode active)");
+      this.isNativeModuleChecked = true;
+      return null;
     }
   }
 
@@ -178,30 +193,31 @@ class BluetoothService {
     if (!hasPermissions) {
       this.state = "error";
       this.notify();
-      throw new Error("Bluetooth and Location permissions are required for hardware scanning.");
+      return;
     }
 
-    if (!this.bleManager) {
+    const manager = this.getBleManager();
+    if (!manager) {
       this.state = "error";
       this.notify();
-      throw new Error("BLE Manager is unavailable on this device.");
+      return;
     }
 
     try {
-      const adapterState = await this.bleManager.state();
+      const adapterState = await manager.state();
       if (adapterState !== BleState.PoweredOn) {
         this.state = "error";
         this.notify();
-        throw new Error("Bluetooth adapter is turned off. Please turn on Bluetooth in phone settings.");
+        return;
       }
 
       this.state = "scanning";
       this.discoveredDevices.clear();
       this.notify();
 
-      this.bleManager.startDeviceScan(
+      manager.startDeviceScan(
         null,
-        { allowDuplicates: true },
+        { allowDuplicates: false },
         (error, scannedDevice) => {
           if (error) {
             console.warn("BLE Scan Error:", error.message);
@@ -212,8 +228,10 @@ class BluetoothService {
 
           if (scannedDevice) {
             const rawName = scannedDevice.name || scannedDevice.localName || "";
-            // Only add devices that have an identifier
-            const devName = rawName || `BLE Device (${scannedDevice.id.slice(-5)})`;
+            // Only add real discoverable hardware devices with an identifier
+            if (!rawName && !scannedDevice.id) return;
+
+            const devName = rawName || `BLE Hardware (${scannedDevice.id.slice(-5)})`;
             const serial = rawName.startsWith("RC200") || rawName.startsWith("GateLink")
               ? rawName.replace("GateLink-", "")
               : `RC200-${scannedDevice.id.replace(/:/g, "").slice(-6).toUpperCase()}`;
@@ -239,14 +257,14 @@ class BluetoothService {
     } catch (e: any) {
       this.state = "error";
       this.notify();
-      throw e;
     }
   }
 
   public stopScanning() {
-    if (this.bleManager) {
+    const manager = this.getBleManager();
+    if (manager) {
       try {
-        this.bleManager.stopDeviceScan();
+        manager.stopDeviceScan();
       } catch (err) {}
     }
     if (this.state === "scanning") {
@@ -254,7 +272,6 @@ class BluetoothService {
       this.notify();
     }
   }
-
 
   // Find or auto-detect the writable GATT service & characteristic on physical controller
   private async resolveWriteTarget(device: Device): Promise<{ serviceUuid: string; charUuid: string; withoutResponse: boolean }> {
@@ -289,7 +306,6 @@ class BluetoothService {
     // Pass 2: Auto-detect any writable characteristic on any custom/vendor service
     for (const s of services) {
       const sUuid = s.uuid.toLowerCase();
-      // Skip standard Bluetooth SIG system services (Generic Access, Generic Attribute, Device Information)
       if (sUuid.includes("1800") || sUuid.includes("1801") || sUuid.includes("180a")) {
         continue;
       }
@@ -309,7 +325,7 @@ class BluetoothService {
     }
 
     throw new Error(
-      `No writable BLE GATT service found on device. Discovered services: [${services.map((s) => s.uuid).join(", ")}]`
+      `No writable BLE GATT service found on real device. Discovered services: [${services.map((s) => s.uuid).join(", ")}]`
     );
   }
 
@@ -320,18 +336,18 @@ class BluetoothService {
     this.cachedWriteTarget = null;
     this.notify();
 
-    if (!this.bleManager) {
+    const manager = this.getBleManager();
+    if (!manager) {
       this.state = "error";
       this.notify();
-      throw new Error("BLE Manager is unavailable.");
+      throw new Error("Bluetooth native manager is unavailable on this device.");
     }
 
     try {
-      const nativeDev = await this.bleManager.connectToDevice(deviceId, { autoConnect: false });
+      const nativeDev = await manager.connectToDevice(deviceId, { autoConnect: false });
       await nativeDev.discoverAllServicesAndCharacteristics();
       this.activeNativeDevice = nativeDev;
 
-      // Pre-warm / resolve writable characteristic
       try {
         await this.resolveWriteTarget(nativeDev);
       } catch (targetErr: any) {
@@ -370,7 +386,8 @@ class BluetoothService {
   // Disconnect active physical BLE peripheral
   public async disconnect() {
     this.cachedWriteTarget = null;
-    if (this.activeNativeDevice && this.bleManager) {
+    const manager = this.getBleManager();
+    if (this.activeNativeDevice && manager) {
       try {
         await this.activeNativeDevice.cancelConnection();
       } catch (e) {}
@@ -385,7 +402,7 @@ class BluetoothService {
   }
 
   public isDeviceConnected(targetSerialOrId?: string): boolean {
-    if (!this.connectedDevice || this.state !== "connected") return false;
+    if (!this.connectedDevice || !this.activeNativeDevice || this.state !== "connected") return false;
     if (!targetSerialOrId) return true;
     const clean = targetSerialOrId.trim().toUpperCase();
     const connSerial = (this.connectedDevice.serial || "").toUpperCase();
@@ -398,7 +415,7 @@ class BluetoothService {
     );
   }
 
-  // Send direct offline command over real BLE
+  // Send direct offline command over real BLE hardware
   public async sendBleCommand(action: Movement): Promise<{ success: boolean; latencyMs: number; mode: string }> {
     if (!this.connectedDevice || !this.activeNativeDevice || this.state !== "connected") {
       throw new Error("No physical RC200 controller is connected. Please pair via Bluetooth first.");
@@ -467,7 +484,7 @@ class BluetoothService {
     }
   }
 
-  // Send Wi-Fi credentials to controller directly over BLE
+  // Send Wi-Fi credentials to real controller directly over BLE
   public async sendBleWifiConfig(ssid: string, pass: string): Promise<{ success: boolean; message: string }> {
     if (!this.connectedDevice || !this.activeNativeDevice || this.state !== "connected") {
       throw new Error("No physical RC200 controller is connected via Bluetooth. Please pair first.");

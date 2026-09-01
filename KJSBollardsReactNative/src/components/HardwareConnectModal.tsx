@@ -98,7 +98,7 @@ export const HardwareConnectModal: React.FC<Props> = ({
   // When opening modal, start BLE scan automatically
   useEffect(() => {
     if (visible && activeTab === "bluetooth") {
-      bluetoothService.startScanning();
+      bluetoothService.startScanning().catch(() => {});
     } else if (visible && activeTab === "wifi") {
       handleScanAps();
     } else {

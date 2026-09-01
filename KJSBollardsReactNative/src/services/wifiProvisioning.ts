@@ -77,7 +77,7 @@ class WifiProvisioningService {
 
       if (res && res.ok) {
         const data = await res.json().catch(() => ({}));
-        const serial = data.serial || data.sn || "RC200-CONTROLLER";
+        const serial = data.serial || data.sn || "RC200";
         const ssid = data.ssid || `GateLink-${serial}`;
         foundAps.push({
           ssid: ssid,
@@ -87,21 +87,16 @@ class WifiProvisioningService {
           security: "WPA2",
         });
       }
-    } catch (probeErr) {
-      // If direct HTTP probe did not respond, provide direct manual SoftAP option for 192.168.4.1
-      foundAps.push({
-        ssid: "RC200 SoftAP (192.168.4.1)",
-        serial: "RC200-DIRECT",
-        signalStrength: -50,
-        ipAddress: defaultIp,
-        security: "WPA2",
-      });
+    } catch {
+      // No physical controller responded at 192.168.4.1
     }
 
     this.updateStatus({
       step: "idle",
       progress: 100,
-      message: `Discovered controller hotspot at 192.168.4.1`,
+      message: foundAps.length > 0 
+        ? `Discovered real controller hotspot at 192.168.4.1` 
+        : `No physical controller hotspot found at 192.168.4.1`,
     });
 
     return foundAps;
