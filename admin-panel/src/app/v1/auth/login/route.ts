@@ -12,7 +12,44 @@ export async function POST(req: NextRequest) {
     }
 
     await db.init();
-    const user = db.users.find((u) => u.email.toLowerCase() === String(email).toLowerCase().trim());
+    const cleanEmail = String(email).toLowerCase().trim();
+    let user = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
+
+    // If user is not in memory cache, query MySQL database directly
+    if (!user) {
+      try {
+        const { UserModel, sequelize } = await import("@/server/sequelize");
+        const found = await UserModel.findOne({
+          where: sequelize.where(
+            sequelize.fn("lower", sequelize.col("email")),
+            cleanEmail
+          ),
+        });
+        if (found) {
+          user = found.get({ plain: true });
+          const existingIdx = db.users.findIndex((u) => u.id === user!.id);
+          if (existingIdx >= 0) db.users[existingIdx] = user!;
+          else db.users.push(user!);
+        }
+      } catch {}
+    }
+
+    // Also check disk storage fallback
+    if (!user) {
+      try {
+        const fs = await import("fs");
+        const path = await import("path");
+        const filePath = path.join(process.cwd(), "data", "db.json");
+        if (fs.existsSync(filePath)) {
+          const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+          const diskUser = (raw.users || []).find((u: any) => u.email.toLowerCase() === cleanEmail);
+          if (diskUser) {
+            user = diskUser;
+            db.users.push(user!);
+          }
+        }
+      } catch {}
+    }
 
     if (!user || !(await comparePassword(String(password), user.passwordHash))) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
