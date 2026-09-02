@@ -51,10 +51,11 @@ export default function App() {
     });
   }, []);
 
-  // Restore authenticated session from persistent storage on app launch
+  // Restore authenticated session and configured API URL from persistent storage on app launch
   useEffect(() => {
     const restoreSession = async () => {
       try {
+        await api.initBaseUrl();
         const json = await AsyncStorage.getItem(STORAGE_KEY_SESSION);
         if (json) {
           const session: Session = JSON.parse(json);

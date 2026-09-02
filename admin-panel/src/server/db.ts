@@ -48,6 +48,10 @@ export interface DBBollard {
   in2Type?: string;
   speed?: number;
   autoCloseDelay?: number;
+  raiseRelay?: number;
+  lowerRelay?: number;
+  stopRelay?: number;
+  movementSeconds?: number;
   createdAt: string;
 }
 
@@ -345,6 +349,21 @@ class PersistentDatabase {
 
     this.bollards = [
       {
+        id: "bol-hardware-01",
+        name: "GateLink RC200 Hardware Controller",
+        deviceCode: "RCBFB58391-386A94B3",
+        status: "RAISED",
+        enabled: true,
+        siteId: mainSite.id,
+        cycleCount: 24,
+        openDuration: 4.5,
+        movementSeconds: 4.5,
+        raiseRelay: 1,
+        lowerRelay: 2,
+        stopRelay: 3,
+        createdAt: new Date().toISOString(),
+      },
+      {
         id: "bol-01",
         name: "Main Entrance Bollard #1",
         deviceCode: "RC200-A5B1-01",
@@ -353,6 +372,10 @@ class PersistentDatabase {
         siteId: mainSite.id,
         cycleCount: 1420,
         openDuration: 6,
+        movementSeconds: 4.5,
+        raiseRelay: 1,
+        lowerRelay: 2,
+        stopRelay: 3,
         createdAt: new Date().toISOString(),
       },
       {
@@ -364,6 +387,10 @@ class PersistentDatabase {
         siteId: mainSite.id,
         cycleCount: 1390,
         openDuration: 6,
+        movementSeconds: 4.5,
+        raiseRelay: 1,
+        lowerRelay: 2,
+        stopRelay: 3,
         createdAt: new Date().toISOString(),
       },
       {
@@ -375,11 +402,20 @@ class PersistentDatabase {
         siteId: logisticsSite.id,
         cycleCount: 840,
         openDuration: 8,
+        movementSeconds: 4.5,
+        raiseRelay: 1,
+        lowerRelay: 2,
+        stopRelay: 3,
         createdAt: new Date().toISOString(),
       },
     ];
 
     this.gatelinkCloudDevices = [
+      {
+        deviceCode: "RCBFB58391-386A94B3",
+        deviceName: "Mayfair Real Bollard (RCBFB58391-386A94B3)",
+        online: true,
+      },
       {
         deviceCode: "RC200-A5B1-01",
         deviceName: "Mayfair Gate 1 (RC200)",

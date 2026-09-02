@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { getAuthenticatedActor, unauthorizedResponse } from "@/server/auth";
+import { gatelink } from "@/server/gatelink";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const actor = await getAuthenticatedActor(req);
   if (!actor) return unauthorizedResponse();
+
+  if (actor.role === "viewer") {
+    return NextResponse.json({ error: "Viewer role does not have control permission" }, { status: 403 });
+  }
 
   const { id } = await params;
   await db.init();
@@ -13,125 +18,123 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Bollard not found" }, { status: 404 });
   }
 
+  if (!bollard.enabled) {
+    return NextResponse.json({ error: "Bollard is disabled" }, { status: 409 });
+  }
+
   const body = await req.json().catch(() => ({}));
   const { action, requestId } = body;
 
-  if (action === "raise") {
-    bollard.status = "RAISED";
-    bollard.cycleCount += 1;
-  } else if (action === "lower") {
-    bollard.status = "LOWERED";
-    bollard.cycleCount += 1;
-  } else if (action === "stop") {
-    bollard.status = "STOPPED";
+  if (!action || !["raise", "lower", "stop"].includes(action.toLowerCase())) {
+    return NextResponse.json({ error: "Invalid action. Must be raise, lower, or stop." }, { status: 400 });
   }
 
+  const normalizedAction = action.toLowerCase() as "raise" | "lower" | "stop";
   const reqId = requestId || `cmd-${Date.now()}`;
+
   let cloudRelayDispatched = false;
   let cloudRelayError: string | null = null;
+  let gatelinkToken: string | null = null;
 
-  // Forward command to GateLink Open API (Boleyun / GateLink Cloud cluster) if configured
-  const gatelinkApiUrl = process.env.GATELINK_API_URL || process.env.BOLEYUN_API_URL;
-  const gatelinkAppKey = process.env.GATELINK_APP_KEY;
-  const gatelinkAppSecret = process.env.GATELINK_APP_SECRET;
-
-  if (gatelinkApiUrl && bollard.deviceCode) {
+  // 1. Direct hardware relay control via GateLink OpenAPI (RC200 controller)
+  if (bollard.deviceCode && (process.env.GATELINK_ACCESS_KEY_SECRET || process.env.GATELINK_APP_SECRET)) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      gatelinkToken = await gatelink.deviceLogin(bollard.deviceCode);
+      const details = await gatelink.getDetails(gatelinkToken);
 
-      const response = await fetch(`${gatelinkApiUrl.replace(/\/$/, "")}/api/open/device/control`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(gatelinkAppKey ? { "X-App-Key": gatelinkAppKey } : {}),
-          ...(gatelinkAppSecret ? { "X-App-Secret": gatelinkAppSecret } : {}),
-        },
-        body: JSON.stringify({
-          deviceCode: bollard.deviceCode,
-          action,
-          requestId: reqId,
-          channel: action === "raise" ? 1 : action === "lower" ? 2 : 3,
-        }),
-        signal: controller.signal,
-      }).catch(async () => {
-        // Alternate Boleyun endpoint format
-        return fetch(`${gatelinkApiUrl.replace(/\/$/, "")}/open/v1/relay/trigger`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sn: bollard.deviceCode, cmd: action, reqId }),
-          signal: controller.signal,
-        });
-      });
-
-      clearTimeout(timeoutId);
-      if (response && response.ok) {
-        cloudRelayDispatched = true;
+      if (!details.netWork.online) {
+        throw new Error(`GateLink controller ${bollard.deviceCode} reports OFFLINE.`);
       }
-    } catch (relayErr: any) {
-      console.warn("[GateLink Cloud Relay] Error forwarding to Open API:", relayErr.message);
-      cloudRelayError = relayErr.message;
+
+      // Safety check: ensure no conflicting relay is already energized before dispatching new movement
+      if (normalizedAction !== "stop" && details.stateVo.out.some(Boolean)) {
+        throw new Error("A relay is already active. Please wait or issue STOP.");
+      }
+
+      const relay =
+        normalizedAction === "raise"
+          ? bollard.raiseRelay || 1
+          : normalizedAction === "lower"
+          ? bollard.lowerRelay || 2
+          : bollard.stopRelay || 3;
+
+      await gatelink.pulseRelay(gatelinkToken, relay);
+      cloudRelayDispatched = true;
+
+      // 2. Automatic STOP worker sequence: for RAISE or LOWER, schedule Relay 3 (STOP) pulse after movement duration
+      if (normalizedAction !== "stop") {
+        const movementSeconds = Number(bollard.movementSeconds || bollard.openDuration || 4.5);
+        const stopRelayNumber = bollard.stopRelay || 3;
+        const targetSerial = bollard.deviceCode;
+        const bollardId = bollard.id;
+        const delayMs = Math.round(movementSeconds * 1000);
+
+        setTimeout(async () => {
+          try {
+            console.log(`[GateLink Automatic STOP] Initiating automatic STOP pulse for ${targetSerial} after ${movementSeconds}s`);
+            const stopToken = await gatelink.deviceLogin(targetSerial);
+            await gatelink.pulseRelay(stopToken, stopRelayNumber);
+            console.log(`[GateLink Automatic STOP] Relay ${stopRelayNumber} pulsed successfully.`);
+
+            db.auditLogs.unshift({
+              id: `aud-${Date.now()}`,
+              userId: actor.id,
+              eventType: "automatic_stop_completed",
+              detail: {
+                bollardId,
+                serial: targetSerial,
+                stopRelay: stopRelayNumber,
+                movementSeconds,
+              },
+              severity: "info",
+              remoteIp: "127.0.0.1",
+              createdAt: new Date().toISOString(),
+            });
+            await db.save();
+          } catch (autoStopErr: any) {
+            console.error(`[GateLink Automatic STOP] Error pulsing STOP relay: ${autoStopErr.message}`);
+          }
+        }, delayMs);
+      }
+    } catch (gatelinkErr: any) {
+      console.warn(`[GateLink Hardware] Error commanding ${bollard.deviceCode}:`, gatelinkErr.message);
+      cloudRelayError = gatelinkErr.message;
+      // If hardware rejected with safety/offline error, do not pretend movement succeeded
+      return NextResponse.json(
+        {
+          error: gatelinkErr.message,
+          cloudRelayDispatched: false,
+          cloudRelayError: gatelinkErr.message,
+        },
+        { status: 409 }
+      );
     }
   }
 
-  // Forward command to EMQX Cloud / MQTT Broker if configured
-  const mqttBrokerUrl = process.env.MQTT_BROKER_URL;
-  const mqttUser = process.env.MQTT_USER;
-  const mqttPass = process.env.MQTT_PASSWORD;
-
-  if (mqttBrokerUrl && bollard.deviceCode) {
-    try {
-      const isHttpApi = mqttBrokerUrl.startsWith("http://") || mqttBrokerUrl.startsWith("https://");
-      if (isHttpApi) {
-        const basicAuth = Buffer.from(`${mqttUser || ""}:${mqttPass || ""}`).toString("base64");
-        const emqxController = new AbortController();
-        const emqxTimeout = setTimeout(() => emqxController.abort(), 3000);
-
-        const publishUrl = `${mqttBrokerUrl.replace(/\/$/, "")}/publish`;
-        const emqxRes = await fetch(publishUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Basic ${basicAuth}`,
-          },
-          body: JSON.stringify({
-            topic: `gatelink/${bollard.deviceCode}/set`,
-            payload: JSON.stringify({
-              action,
-              cmd: action,
-              sn: bollard.deviceCode,
-              requestId: reqId,
-              timestamp: Date.now(),
-            }),
-            qos: 1,
-            retain: false,
-          }),
-          signal: emqxController.signal,
-        }).catch(() => null);
-
-        clearTimeout(emqxTimeout);
-        if (emqxRes && emqxRes.ok) {
-          cloudRelayDispatched = true;
-        }
-      }
-    } catch (emqxErr: any) {
-      console.warn("[EMQX Cloud MQTT] Error publishing command:", emqxErr.message);
-    }
+  // Update local state
+  if (normalizedAction === "raise") {
+    bollard.status = "RAISED";
+    bollard.cycleCount += 1;
+  } else if (normalizedAction === "lower") {
+    bollard.status = "LOWERED";
+    bollard.cycleCount += 1;
+  } else if (normalizedAction === "stop") {
+    bollard.status = "STOPPED";
   }
 
   db.commands.push({
     id: reqId,
     bollardId: bollard.id,
     userId: actor.id,
-    action,
-    status: "dispatched",
+    action: normalizedAction,
+    status: cloudRelayDispatched ? "completed" : "dispatched",
     createdAt: new Date().toISOString(),
   });
 
   db.auditLogs.unshift({
     id: `aud-${Date.now()}`,
     userId: actor.id,
-    eventType: `command_${action}`,
+    eventType: `command_${normalizedAction}`,
     detail: {
       bollardId: bollard.id,
       serial: bollard.deviceCode,
@@ -152,5 +155,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     status: "dispatched",
     bollardStatus: bollard.status,
     cloudRelayDispatched,
+    cloudRelayError,
   });
 }

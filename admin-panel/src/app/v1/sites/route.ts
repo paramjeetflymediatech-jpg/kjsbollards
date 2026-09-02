@@ -28,6 +28,27 @@ export async function GET(req: NextRequest) {
 
   // Find all bollards belonging to this user or admin
   const allBollards = db.bollards.filter((b) => b.enabled);
+  const hasGateLinkConfig = Boolean(process.env.GATELINK_ACCESS_KEY_SECRET || process.env.GATELINK_APP_SECRET);
+
+  // Query live online status from GateLink Cloud for configured serials
+  const liveStatusMap = new Map<string, { online: boolean; safetyOk: boolean }>();
+  if (hasGateLinkConfig) {
+    await Promise.all(
+      allBollards.map(async (b) => {
+        if (!b.deviceCode) return;
+        try {
+          const { gatelink } = await import("@/server/gatelink");
+          const token = await gatelink.deviceLogin(b.deviceCode);
+          const details = await gatelink.getDetails(token);
+          const online = Boolean(details.netWork.online);
+          const outputsOff = !details.stateVo.out.some(Boolean);
+          liveStatusMap.set(b.deviceCode, { online, safetyOk: online && outputsOff });
+        } catch {
+          // If query fails, keep default
+        }
+      })
+    );
+  }
 
   const formatted = userSites.map((s, index) => {
     // Attach matching bollards, or unassigned bollards to the first site
@@ -41,17 +62,23 @@ export async function GET(req: NextRequest) {
       address: s.address || "Main Site Location",
       ownerId: s.ownerId,
       authorizedUsers: [],
-      bollards: bollards.map((b) => ({
-        id: b.id,
-        name: b.name,
-        status: b.status,
-        online: true,
-        safetyOk: true,
-        lastSeen: "Just now",
-        serial: b.deviceCode,
-        isClaimed: true,
-        movementSeconds: b.openDuration || 4.5,
-      })),
+      bollards: bollards.map((b) => {
+        const live = liveStatusMap.get(b.deviceCode);
+        const isOnline = live ? live.online : true;
+        const isSafetyOk = live ? live.safetyOk : true;
+
+        return {
+          id: b.id,
+          name: b.name,
+          status: b.status,
+          online: isOnline,
+          safetyOk: isSafetyOk,
+          lastSeen: isOnline ? "Just now" : "Offline",
+          serial: b.deviceCode,
+          isClaimed: true,
+          movementSeconds: b.movementSeconds || b.openDuration || 4.5,
+        };
+      }),
     };
   });
 

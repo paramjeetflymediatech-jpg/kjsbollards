@@ -39,6 +39,21 @@
   ],
   "bollards": [
     {
+      "id": "bol-hardware-01",
+      "name": "GateLink RC200 Hardware Controller",
+      "deviceCode": "RCBFB58391-386A94B3",
+      "status": "RAISED",
+      "enabled": true,
+      "siteId": "site-hq-01",
+      "cycleCount": 24,
+      "openDuration": 4.5,
+      "movementSeconds": 4.5,
+      "raiseRelay": 1,
+      "lowerRelay": 2,
+      "stopRelay": 3,
+      "createdAt": "2026-09-02T10:00:00.000Z"
+    },
+    {
       "id": "bol-01",
       "name": "Main Entrance Bollard #1",
       "deviceCode": "RC200-A5B1-01",
@@ -73,6 +88,11 @@
     }
   ],
   "gatelinkCloudDevices": [
+    {
+      "deviceCode": "RCBFB58391-386A94B3",
+      "deviceName": "GateLink RC200 Controller (RCBFB58391-386A94B3)",
+      "online": true
+    },
     {
       "deviceCode": "RC200-A5B1-01",
       "deviceName": "Mayfair Gate 1 (RC200)",

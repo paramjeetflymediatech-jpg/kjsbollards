@@ -14,17 +14,34 @@ import {
 } from "../types";
 
 const STORAGE_KEY_DEVICE_ID = "@kjs_device_unique_id";
-const DEFAULT_PROD_URL = Platform.OS === "android" ? "http://10.0.2.2:3000" : "http://localhost:3000";
+export const STORAGE_KEY_BASE_URL = "@kjs_backend_url";
+export const PRODUCTION_API_URL = "https://api.kjsbollards.co.uk";
+export const DEFAULT_LOCAL_URL = Platform.OS === "android" ? "http://10.0.2.2:3002" : "http://localhost:3002";
 
 class ApiClient {
-  private baseUrl: string = "https://api.kjsbollards.co.uk";
+  private baseUrl: string = PRODUCTION_API_URL;
   private token: string | null = null;
   private refreshToken: string | null = null;
   private isRefreshing: boolean = false;
   private onTokenRefreshedCallback?: (newSession: Session) => void;
 
-  public setBaseUrl(url: string) {
-    this.baseUrl = url.replace(/\/$/, "");
+  public async initBaseUrl(): Promise<string> {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEY_BASE_URL);
+      if (stored && stored.trim()) {
+        this.baseUrl = stored.trim().replace(/\/$/, "");
+      }
+    } catch {}
+    return this.baseUrl;
+  }
+
+  public async setBaseUrl(url: string, persist: boolean = true): Promise<void> {
+    this.baseUrl = url.trim().replace(/\/$/, "");
+    if (persist) {
+      try {
+        await AsyncStorage.setItem(STORAGE_KEY_BASE_URL, this.baseUrl);
+      } catch {}
+    }
   }
 
   public getBaseUrl(): string {
