@@ -151,6 +151,8 @@ class BluetoothService {
     return Math.round(distance * 10) / 10;
   }
 
+  private scanTimer: any = null;
+
   // Request Android Bluetooth & Location Permissions
   public async requestPermissions(): Promise<boolean> {
     if (Platform.OS === "android") {
@@ -161,21 +163,21 @@ class BluetoothService {
             PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
             PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
             PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
           ]);
 
           const scanGranted = result[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] === PermissionsAndroid.RESULTS.GRANTED;
           const connectGranted = result[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] === PermissionsAndroid.RESULTS.GRANTED;
           return scanGranted && connectGranted;
         } else {
-          const granted = await PermissionsAndroid.request(
+          const result = await PermissionsAndroid.requestMultiple([
             PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-            {
-              title: "GateLink Bluetooth Permission",
-              message: "Location access is required to discover nearby RC200 bollard controllers.",
-              buttonPositive: "Grant Permission",
-            }
+            PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+          ]);
+          return (
+            result[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED ||
+            result[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED
           );
-          return granted === PermissionsAndroid.RESULTS.GRANTED;
         }
       } catch (err) {
         console.warn("Permission request error:", err);
@@ -185,12 +187,13 @@ class BluetoothService {
     return true;
   }
 
-  // Start real hardware BLE scanning
+  // Start real hardware BLE scanning with auto-timeout and robust detection
   public async startScanning() {
     if (this.state === "scanning") return;
 
     const hasPermissions = await this.requestPermissions();
     if (!hasPermissions) {
+      console.warn("[BLE] Permissions not granted");
       this.state = "error";
       this.notify();
       return;
@@ -204,16 +207,45 @@ class BluetoothService {
     }
 
     try {
-      const adapterState = await manager.state();
+      let adapterState = await manager.state();
       if (adapterState !== BleState.PoweredOn) {
+        // Wait briefly for Bluetooth adapter to power up if needed
+        await new Promise<void>((resolve) => {
+          const sub = manager.onStateChange((state) => {
+            if (state === BleState.PoweredOn) {
+              sub.remove();
+              resolve();
+            }
+          }, true);
+          setTimeout(() => {
+            try { sub.remove(); } catch {}
+            resolve();
+          }, 1500);
+        });
+        adapterState = await manager.state();
+      }
+
+      if (adapterState !== BleState.PoweredOn) {
+        console.warn(`[BLE] Bluetooth adapter not powered on: ${adapterState}`);
         this.state = "error";
         this.notify();
         return;
       }
 
       this.state = "scanning";
-      this.discoveredDevices.clear();
       this.notify();
+
+      if (this.scanTimer) {
+        clearTimeout(this.scanTimer);
+        this.scanTimer = null;
+      }
+
+      // Auto-stop scan after 15 seconds to avoid battery drain and indefinite loop
+      this.scanTimer = setTimeout(() => {
+        if (this.state === "scanning") {
+          this.stopScanning();
+        }
+      }, 15000);
 
       manager.startDeviceScan(
         null,
@@ -228,10 +260,10 @@ class BluetoothService {
 
           if (scannedDevice) {
             const rawName = scannedDevice.name || scannedDevice.localName || "";
-            // Only add real discoverable hardware devices with an identifier
-            if (!rawName && !scannedDevice.id) return;
+            // Accept all discoverable peripherals with either an ID or a name
+            if (!scannedDevice.id && !rawName) return;
 
-            const devName = rawName || `BLE Hardware (${scannedDevice.id.slice(-5)})`;
+            const devName = rawName || `BLE Device (${scannedDevice.id.slice(-5)})`;
             const serial = rawName.startsWith("RC200") || rawName.startsWith("GateLink")
               ? rawName.replace("GateLink-", "")
               : `RC200-${scannedDevice.id.replace(/:/g, "").slice(-6).toUpperCase()}`;
@@ -255,12 +287,17 @@ class BluetoothService {
         }
       );
     } catch (e: any) {
+      console.warn("[BLE] Exception starting scan:", e);
       this.state = "error";
       this.notify();
     }
   }
 
   public stopScanning() {
+    if (this.scanTimer) {
+      clearTimeout(this.scanTimer);
+      this.scanTimer = null;
+    }
     const manager = this.getBleManager();
     if (manager) {
       try {

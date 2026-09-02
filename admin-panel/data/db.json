@@ -7,7 +7,18 @@
       "passwordHash": "$2b$10$dncSLqDxkieco8tpM5oOKeDZEOH.C9McSZywm6Hcud6e4Ng9zxKE6",
       "role": "admin",
       "enabled": true,
-      "createdAt": "2026-09-01T05:04:03.556Z"
+      "createdAt": "2026-08-27T09:57:54.554Z",
+      "updatedAt": null
+    },
+    {
+      "id": "usr-admin-1788151902506",
+      "name": "Super Administrator",
+      "email": "superadmin@kjsbollards.co.uk",
+      "passwordHash": "$2b$10$xYNZPR5j216ND5VL3qqOLuO5K5xUPtcFF2D2k3nflyNeON0alTh62",
+      "role": "admin",
+      "enabled": true,
+      "createdAt": "2026-08-31T04:51:42.506Z",
+      "updatedAt": "2026-09-02T05:09:49.377Z"
     },
     {
       "id": "usr-op-02",
@@ -16,7 +27,8 @@
       "passwordHash": "$2b$10$NxAcd/3/WIy0cP9GvrOM3uhgl8TOYj7Kr0bN06qR1W58itxktmjYe",
       "role": "operator",
       "enabled": true,
-      "createdAt": "2026-09-01T05:04:03.557Z"
+      "createdAt": "2026-08-27T09:57:54.554Z",
+      "updatedAt": null
     }
   ],
   "sites": [
@@ -26,165 +38,76 @@
       "address": "14 Berkeley Square, Mayfair, London W1J 6BQ",
       "ownerId": "usr-op-02",
       "enabled": true,
-      "createdAt": "2026-09-01T05:04:03.557Z"
-    },
-    {
-      "id": "site-log-02",
-      "name": "North Perimeter Logistics Gate",
-      "address": "Unit 4, Gateway Industrial Estate, Manchester",
-      "ownerId": "usr-op-02",
-      "enabled": true,
-      "createdAt": "2026-09-01T05:04:03.557Z"
+      "createdAt": "2026-08-27T09:57:54.554Z"
     }
   ],
-  "bollards": [
+  "bollards": [],
+  "gatelinkCloudDevices": [],
+  "mqttTelemetry": [],
+  "auditLogs": [],
+  "commands": [
     {
-      "id": "bol-hardware-01",
-      "name": "GateLink RC200 Hardware Controller",
-      "deviceCode": "RCBFB58391-386A94B3",
-      "status": "RAISED",
-      "enabled": true,
-      "siteId": "site-hq-01",
-      "cycleCount": 24,
-      "openDuration": 4.5,
-      "movementSeconds": 4.5,
-      "raiseRelay": 1,
-      "lowerRelay": 2,
-      "stopRelay": 3,
-      "createdAt": "2026-09-02T10:00:00.000Z"
-    },
-    {
-      "id": "bol-01",
-      "name": "Main Entrance Bollard #1",
-      "deviceCode": "RC200-A5B1-01",
-      "status": "RAISED",
-      "enabled": true,
-      "siteId": "site-hq-01",
-      "cycleCount": 1420,
-      "openDuration": 6,
-      "createdAt": "2026-09-01T05:04:03.557Z"
-    },
-    {
-      "id": "bol-02",
-      "name": "Main Entrance Bollard #2",
-      "deviceCode": "RC200-A5B1-02",
-      "status": "RAISED",
-      "enabled": true,
-      "siteId": "site-hq-01",
-      "cycleCount": 1390,
-      "openDuration": 6,
-      "createdAt": "2026-09-01T05:04:03.557Z"
-    },
-    {
-      "id": "bol-03",
-      "name": "Service Delivery Gate",
-      "deviceCode": "RC200-B2C3-01",
-      "status": "LOWERED",
-      "enabled": true,
-      "siteId": "site-log-02",
-      "cycleCount": 840,
-      "openDuration": 8,
-      "createdAt": "2026-09-01T05:04:03.557Z"
-    }
-  ],
-  "gatelinkCloudDevices": [
-    {
-      "deviceCode": "RCBFB58391-386A94B3",
-      "deviceName": "GateLink RC200 Controller (RCBFB58391-386A94B3)",
-      "online": true
-    },
-    {
-      "deviceCode": "RC200-A5B1-01",
-      "deviceName": "Mayfair Gate 1 (RC200)",
-      "online": true
-    },
-    {
-      "deviceCode": "RC200-A5B1-02",
-      "deviceName": "Mayfair Gate 2 (RC200)",
-      "online": true
-    },
-    {
-      "deviceCode": "RC200-B2C3-01",
-      "deviceName": "Logistics Access Control (RC200)",
-      "online": true
-    }
-  ],
-  "mqttTelemetry": [
-    {
-      "sn": "RC200-A5B1-01",
-      "online": true,
-      "lastSeen": "2026-09-01T05:04:03.557Z",
-      "hardwareVersion": "1.10",
-      "softwareVersion": "1.02",
-      "signalStrength": 78,
-      "inputs": [
-        true,
-        true,
-        false
-      ],
-      "outputs": [
-        true,
-        false,
-        false,
-        false
-      ],
-      "cycleCount": 1420
-    },
-    {
-      "sn": "RC200-A5B1-02",
-      "online": true,
-      "lastSeen": "2026-09-01T05:04:03.557Z",
-      "hardwareVersion": "1.11",
-      "softwareVersion": "1.01",
-      "signalStrength": 65,
-      "inputs": [
-        false,
-        true,
-        false
-      ],
-      "outputs": [
-        false,
-        false,
-        false,
-        false
-      ],
-      "cycleCount": 1390
-    },
-    {
-      "sn": "RC200-B2C3-01",
-      "online": true,
-      "lastSeen": "2026-09-01T05:04:03.557Z",
-      "hardwareVersion": "1.20",
-      "softwareVersion": "1.04",
-      "signalStrength": 84,
-      "inputs": [
-        true,
-        false,
-        false
-      ],
-      "outputs": [
-        false,
-        false,
-        false,
-        false
-      ],
-      "cycleCount": 840
-    }
-  ],
-  "auditLogs": [
-    {
-      "id": "aud-1788239043557-1",
+      "id": "cmd-1788327268185",
+      "bollardId": "bol-01",
       "userId": "usr-admin-01",
-      "eventType": "system_startup",
-      "detail": {
-        "mode": "unified_nextjs_enterprise",
-        "version": "2.0.0"
-      },
-      "severity": "info",
-      "remoteIp": "127.0.0.1",
-      "createdAt": "2026-09-01T04:04:03.557Z"
+      "action": "lower",
+      "status": "completed",
+      "createdAt": "2026-09-02T05:34:28.225Z"
+    },
+    {
+      "id": "cmd-1788327285487",
+      "bollardId": "bol-01",
+      "userId": "usr-admin-01",
+      "action": "raise",
+      "status": "completed",
+      "createdAt": "2026-09-02T05:34:45.493Z"
+    },
+    {
+      "id": "cmd-1788327306053",
+      "bollardId": "bol-01",
+      "userId": "usr-admin-01",
+      "action": "lower",
+      "status": "completed",
+      "createdAt": "2026-09-02T05:35:06.061Z"
+    },
+    {
+      "id": "cmd-1788327310502",
+      "bollardId": "bol-02",
+      "userId": "usr-admin-01",
+      "action": "lower",
+      "status": "completed",
+      "createdAt": "2026-09-02T05:35:10.511Z"
+    },
+    {
+      "id": "cmd-1788327324633",
+      "bollardId": "bol-01",
+      "userId": "usr-admin-01",
+      "action": "lower",
+      "status": "completed",
+      "createdAt": "2026-09-02T05:35:24.639Z"
+    },
+    {
+      "id": "cmd-1788327327413",
+      "bollardId": "bol-01",
+      "userId": "usr-admin-01",
+      "action": "stop",
+      "status": "completed",
+      "createdAt": "2026-09-02T05:35:27.415Z"
     }
   ],
-  "commands": [],
-  "userDevices": []
+  "userDevices": [
+    {
+      "id": "ud-1788157614308",
+      "userId": "usr-admin-01",
+      "deviceId": "dev-ios-1788157461745-eu5pb1",
+      "platform": "ios",
+      "model": "IOS Device (26.5)",
+      "osVersion": "26.5",
+      "appVersion": "1.2.0",
+      "pushToken": null,
+      "lastSeen": "2026-08-31T06:32:37.569Z",
+      "ipAddress": "::1",
+      "createdAt": "2026-08-31T06:26:54.308Z"
+    }
+  ]
 }

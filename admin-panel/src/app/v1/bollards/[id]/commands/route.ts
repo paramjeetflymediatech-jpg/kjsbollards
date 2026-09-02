@@ -63,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
       // 2. Automatic STOP worker sequence: for RAISE or LOWER, schedule Relay 3 (STOP) pulse after movement duration
       if (normalizedAction !== "stop") {
-        const movementSeconds = Number(bollard.movementSeconds || bollard.openDuration || 4.5);
+        const movementSeconds = Number(bollard.movementSeconds || bollard.openDuration || 2.5);
         const stopRelayNumber = bollard.stopRelay || 3;
         const targetSerial = bollard.deviceCode;
         const bollardId = bollard.id;

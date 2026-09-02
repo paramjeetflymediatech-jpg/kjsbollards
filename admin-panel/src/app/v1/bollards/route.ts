@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     enabled: true,
     siteId: targetSiteId,
     cycleCount: 0,
-    openDuration: Number(openDuration || movementSeconds) || 6,
+    openDuration: Number(openDuration || movementSeconds) || 2.5,
     createdAt: new Date().toISOString(),
   };
 

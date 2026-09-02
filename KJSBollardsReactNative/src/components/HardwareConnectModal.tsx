@@ -318,9 +318,12 @@ export const HardwareConnectModal: React.FC<Props> = ({
                 {bleDevices.length === 0 ? (
                   <View style={styles.emptyBleBox}>
                     <Text style={styles.emptyBleIcon}>📡</Text>
-                    <Text style={styles.emptyBleText}>No GateLink BLE controllers in range.</Text>
+                    <Text style={styles.emptyBleText}>
+                      {bleState === "scanning" ? "Scanning for nearby controllers..." : "No controllers found yet."}
+                    </Text>
                     <Text style={styles.emptyBleSubtext}>
-                      Ensure the RC200 controller is powered and within 15 meters.
+                      1. Ensure Bluetooth & Location (GPS) are turned ON on your phone.{"\n"}
+                      2. Ensure the RC200 controller is powered ON and within 15 meters.
                     </Text>
                   </View>
                 ) : (

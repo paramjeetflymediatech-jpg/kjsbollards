@@ -51,7 +51,7 @@ export const HydraulicBollard: React.FC<HydraulicBollardProps> = ({
 
     Animated.timing(heightAnim, {
       toValue: targetHeight,
-      duration: isMoving ? 3000 : 400,
+      duration: isMoving ? 2500 : 400,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
       useNativeDriver: false,
     }).start();

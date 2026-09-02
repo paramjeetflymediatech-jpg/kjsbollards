@@ -270,7 +270,7 @@ export default function App() {
     const newStatus = action === "raise" ? "RAISED" : action === "lower" ? "LOWERED" : "STOPPED";
     setSelectedBollard({ ...selectedBollard, status: newStatus });
 
-    // Inform user of execution path
+    // Inform user of execution path immediately
     if (bleResult) {
       setSuccessMessage(
         `⚡ Triggered [${action.toUpperCase()}] via BLE Direct (${bleResult.latencyMs}ms)${
@@ -289,12 +289,14 @@ export default function App() {
       setError(`Hardware & Cloud Error: ${cloudError || "Command failed to reach device"}`);
     }
 
-    try {
-      await fetchRemoteData();
-    } catch {}
+    // Release movement lock after 2.5 seconds (matching movement duration)
+    setTimeout(() => {
+      setIsMoving(false);
+      setActiveMovement(null);
+    }, 2500);
 
-    setIsMoving(false);
-    setActiveMovement(null);
+    // Refresh remote sites & history asynchronously in the background
+    fetchRemoteData().catch(() => {});
   };
 
   const isOwner = user?.role === "owner" || user?.role === "admin";
