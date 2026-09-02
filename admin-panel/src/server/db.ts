@@ -244,8 +244,19 @@ class PersistentDatabase {
       this.isMySqlConnected = true;
       console.log("[DB] MySQL connection established successfully.");
 
-      // Synchronize MySQL tables
-      await sequelize.sync({ alter: true });
+      // Clean up any historical duplicate indexes created by Sequelize alter:true bug
+      try {
+        const [indexes]: any = await sequelize.query("SHOW INDEX FROM `users`");
+        const dupes = [...new Set(indexes.map((i: any) => i.Key_name || i.key_name))].filter((k: any) =>
+          typeof k === "string" && /^email_\d+$/.test(k)
+        );
+        for (const k of dupes) {
+          await sequelize.query(`ALTER TABLE \`users\` DROP INDEX \`${k}\``).catch(() => {});
+        }
+      } catch {}
+
+      // Synchronize MySQL tables safely without alter: true
+      await sequelize.sync();
 
       // Check if MySQL has existing records
       const dbUsersCount = await UserModel.count();
